@@ -1,1 +1,1 @@
-# bachelorsthesis
+# Bachelor's Thesis Repository
