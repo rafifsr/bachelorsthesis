@@ -56,7 +56,7 @@ max_idx = argmax(mean_X)
 optimal_time = tsteps[max_idx]
 
 println("🔍 Estimated optimal stopping time: $optimal_time")
-plot(tsteps, mean_X, label=L"\mathbb{E}[X_t]", xlabel="Time", ylabel="Expected Biomass", title="Expected Biomass over Time")
+plot(tsteps, mean_X, label=L"\mathbb{E}[X_t]", xlabel="Time", ylabel="Expected Biomass", title="Expected Biomass over Time", fontfamily="Computer Modern")
 plot!(tsteps, det_sol, label="Deterministic Solution", linestyle=:dash)
 vline!([optimal_time], label="Optimal Stop", linestyle=:dash)
 xlims!(0, T)
