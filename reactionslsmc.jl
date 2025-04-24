@@ -1,0 +1,116 @@
+using Pkg
+Pkg.activate(@__DIR__)
+using DifferentialEquations, LinearAlgebra, Statistics, Random
+using Plots, Distributions, KernelDensity
+
+# Parameters
+p = (0.5, 0.3, 0.2)  # k1, k2, σ
+u0 = [1.0, 0.0, 0.0]  # Initial concentrations of X, Y, Z
+T = 60.0
+dt = 0.05
+N = Int(T/dt)
+M = 10_000  # number of trajectories
+tspan = (0.0, T)
+tsteps = 0:dt:T
+
+# Define drift and diffusion for the components
+function f(du, u, p, t)
+    X, Y, Z = u
+    k1, k2 = p
+    du[1] = -k1 * X
+    du[2] = k1 * X - k2 * Y
+    du[3] = k2 * Y
+end
+
+function g(du, u, p, t)
+    X, Y, Z = u
+    σ = p[3]
+    du[2] = -σ * Y
+    du[3] = σ * Y
+end
+
+# Laguerre basis functions up to degree 3
+function laguerre_design_matrix(y::Vector{Float64}, d::Int)
+    Φ = zeros(length(y), d + 1)
+    for i in 1:length(y)
+        Φ[i,1] = 1.0
+        if d >= 1
+            Φ[i,2] = 1 - y[i]
+        end
+        if d >= 2
+            Φ[i,3] = 1 - 2*y[i] + 0.5*y[i]^2
+        end
+        if d >= 3
+            Φ[i,4] = 1 - 3*y[i] + 1.5*y[i]^2 - (1/6)*y[i]^3
+        end
+    end
+    return Φ
+end
+
+# Store all Y trajectories
+Ys = zeros(M, length(tsteps))
+τ = fill(length(tsteps), M)
+
+# Simulate all trajectories
+prob = SDEProblem(f, g, u0, tspan, p)
+Random.seed!(42)
+for i in 1:M
+    sol = solve(prob, EM(), dt=dt, saveat=tsteps)
+    Ys[i, :] .= sol[2,:]
+end
+
+# Initialize value matrix
+V = copy(Ys)
+degree = 3  # Degree of polynomial basis
+
+# Longstaff-Schwartz backward induction
+for n in (length(tsteps)-1):-1:2
+    y_now = Ys[:, n]
+    value_future = V[:, n+1]
+
+    itm_indices = findall(y -> y > 0, y_now)
+    if length(itm_indices) < 10
+        continue
+    end
+
+    y_itm = y_now[itm_indices]
+    vf_itm = value_future[itm_indices]
+
+    Φ = laguerre_design_matrix(y_itm, degree)
+    β = Φ \ vf_itm
+
+    continuation_value = Φ * β
+    stop_now = y_itm .> continuation_value
+
+    for (idx, stop) in zip(itm_indices, stop_now)
+        if stop
+            V[idx,n] = y_now[idx]
+            τ[idx] = min(τ[idx], n)
+        else
+            V[idx,n] = V[idx,n+1]
+        end
+    end
+end
+
+# Compute outputs
+Y_opt_values = [Ys[i, τ[i]] for i in 1:M]
+τ_times = [tsteps[τ[i]] for i in 1:M]
+
+println("Estimated optimal expected value of Y: ", round(mean(Y_opt_values), digits=4))
+println("Expected optimal stopping time: ", round(mean(τ_times), digits=4), " seconds")
+
+# Plot histogram of stopping times
+histogram(τ_times, bins=30, xlabel="Stopping Time", ylabel="Frequency",
+          title="Distribution of Optimal Stopping Times", legend=false, fontfamily="Computer Modern")
+
+# # Plot: Histogram + Gamma fit + KDE
+# histogram(τ_times, bins=30, normalize=true, label="Histogram", xlabel="Stopping Time", ylabel="Density", title="Optimal Stopping Time PDF", 
+#           legend=:topright, fontfamily="Computer Modern", lw=2, alpha=0.5)
+
+# # Gamma distribution fit
+# fit_gamma = fit(Gamma, τ_times)
+# plot!(tsteps, pdf.(fit_gamma, tsteps), lw=2, label="Gamma Fit")
+
+# # KDE overlay
+# kde_est = kde(τ_times)
+# plot!(kde_est.x, kde_est.density, lw=2, linestyle=:dash, label="KDE")
