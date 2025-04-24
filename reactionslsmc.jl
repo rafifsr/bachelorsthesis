@@ -4,8 +4,8 @@ using DifferentialEquations, LinearAlgebra, Statistics, Random
 using Plots, Distributions, KernelDensity
 
 # Parameters
-p = (0.5, 0.3, 0.2)  # k1, k2, σ
-u0 = [1.0, 0.0, 0.0]  # Initial concentrations of X, Y, Z
+p = (0.5, 0.5, 0.2)  # k1, k2, σ
+u0 = [2.0, 0.0, 0.0]  # Initial concentrations of X, Y, Z
 T = 60.0
 dt = 0.05
 N = Int(T/dt)
@@ -98,19 +98,21 @@ Y_opt_values = [Ys[i, τ[i]] for i in 1:M]
 
 println("Estimated optimal expected value of Y: ", round(mean(Y_opt_values), digits=4))
 println("Expected optimal stopping time: ", round(mean(τ_times), digits=4), " seconds")
+println("Variance of stopping time: ", round(var(τ_times), digits=4), " seconds^2")
+println("Standard deviation of stopping time: ", round(std(τ_times), digits=4), " seconds")
+println("95% confidence interval for stopping time: ", round(quantile(τ_times, 0.025), digits=4), " to ", round(quantile(τ_times, 0.975), digits=4), " seconds")
+println("95% confidence interval for expected value of Y: ", round(quantile(Y_opt_values, 0.025), digits=4), " to ", round(quantile(Y_opt_values, 0.975), digits=4))
 
-# Plot histogram of stopping times
-histogram(τ_times, bins=30, xlabel="Stopping Time", ylabel="Frequency",
-          title="Distribution of Optimal Stopping Times", legend=false, fontfamily="Computer Modern")
+# Plot: Histogram + Gamma fit + KDE
+histogram(τ_times, bins=30, normalize=true, label="Histogram", xlabel="Stopping Time", ylabel="Density", title="Optimal Stopping Time PDF", 
+          legend=:topright, fontfamily="Computer Modern", lw=2, alpha=0.5)
 
-# # Plot: Histogram + Gamma fit + KDE
-# histogram(τ_times, bins=30, normalize=true, label="Histogram", xlabel="Stopping Time", ylabel="Density", title="Optimal Stopping Time PDF", 
-#           legend=:topright, fontfamily="Computer Modern", lw=2, alpha=0.5)
+# Gamma distribution fit
+fit_gamma = fit(Gamma, τ_times)
+plot!(tsteps, pdf.(fit_gamma, tsteps), lw=2, label="Gamma Fit")
 
-# # Gamma distribution fit
-# fit_gamma = fit(Gamma, τ_times)
-# plot!(tsteps, pdf.(fit_gamma, tsteps), lw=2, label="Gamma Fit")
+# KDE overlay
+kde_est = kde(τ_times)
+plot!(kde_est.x, kde_est.density, lw=2, linestyle=:dash, label="KDE")
 
-# # KDE overlay
-# kde_est = kde(τ_times)
-# plot!(kde_est.x, kde_est.density, lw=2, linestyle=:dash, label="KDE")
+xlims!(0, 6)
