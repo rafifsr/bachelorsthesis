@@ -4,12 +4,12 @@ using DifferentialEquations, LinearAlgebra, Statistics, Random
 using Plots, Distributions, KernelDensity
 
 # Parameters
-p = (0.5, 0.5, 0.2)  # k1, k2, σ
+p = (0.5, 0.5, 0.5)  # k1, k2, σ
 u0 = [2.0, 0.0, 0.0]  # Initial concentrations of X, Y, Z
 T = 60.0
 dt = 0.05
 N = Int(T/dt)
-M = 10_000  # number of trajectories
+M = 50_000  # number of trajectories
 tspan = (0.0, T)
 tsteps = 0:dt:T
 
@@ -59,9 +59,10 @@ for i in 1:M
     Ys[i, :] .= sol[2,:]
 end
 
-# Initialize value matrix
+# Initialize matrices
 V = copy(Ys)
 degree = 3  # Degree of polynomial basis
+β_matrix = zeros(N, degree + 1)
 
 # Longstaff-Schwartz backward induction
 for n in (length(tsteps)-1):-1:2
@@ -90,6 +91,10 @@ for n in (length(tsteps)-1):-1:2
             V[idx,n] = V[idx,n+1]
         end
     end
+
+    # Save regression coefficients
+    β_matrix[n, :] .= β
+    
 end
 
 # Compute outputs
@@ -115,4 +120,4 @@ plot!(tsteps, pdf.(fit_gamma, tsteps), lw=2, label="Gamma Fit")
 kde_est = kde(τ_times)
 plot!(kde_est.x, kde_est.density, lw=2, linestyle=:dash, label="KDE")
 
-xlims!(0, 6)
+xlims!(0, 7)
