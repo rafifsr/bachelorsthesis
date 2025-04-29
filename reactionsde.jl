@@ -28,7 +28,7 @@ end
 u0 = [1.0, 0.0, 0.0]  # Initial concentrations of A, B, and C
 T = 20.0             # Final time
 tspan = (0.0, T)      # Time span
-p = (0.5, 0.5, 0.1, 0.5)   # Parameters k1, k2, σ1, σ2
+p = (0.5, 0.5, 0.1, 0.1)   # Parameters k1, k2, σ1, σ2
 
 # Problem definition
 prob = SDEProblem(f, g, u0, tspan, p)
