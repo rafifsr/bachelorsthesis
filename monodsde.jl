@@ -4,39 +4,51 @@ using DifferentialEquations, LinearAlgebra, Statistics, Plots
 
 # Drift term
 function monod(du, u, p, t)
-    X, S, P = u               # u[1] = biomass X, u[2] = substrate S
+    S, X, P = max.(u, 0.0)           # u[1] = substrate S, u[2] = biomass X, u[3] = product P
     μ_max, K_s, Y_s, q_max, K_sp, Y_p = p      # unpack parameters
 
-    μ = μ_max * S / (K_s + S)  # Monod growth rate with small epsilon to avoid div by zero
-    q = q_max * S / (K_sp + S)  # Monod product formation rate
+    μ = μ_max * S / (K_s + S + 1e-6)  # Monod growth rate
+    q = q_max * S / (K_sp + S + 1e-6)  # Monod product formation rate
     dX = μ * X
     dS = - (1 / Y_s) * μ * X - (1 / Y_p) * q * X  # Monod substrate consumption rate
     dP = q * X
 
-    du[1] = dX
-    du[2] = dS
+    du[1] = dS
+    du[2] = dX
     du[3] = dP
 end
 
 # Diffusion term
-function g(du, u, p, t)
+function noise(du, u, p, t)
+    S, X, P = max.(u, 0.0)  # Ensure non-negative concentrations
     σ1 = p[7]
     σ2 = p[8]
-    du[1] = -σ1*u[1]
-    du[2] = σ1*u[1] - σ2*u[2]
-    du[3] = σ2*u[2]
+    du[1] = σ1*S
+    du[2] = σ2*X
+    du[3] = 0
 end
 
 # Initial conditions and parameters
-u0 = [10.0, 0.01, 0.0]  # Initial concentrations of X, Y, and z
-T = 20.0             # Final time
-tspan = (0.0, T)      # Time span
-p = (0.4, 0.5, 0.5, 0.1, 0.1, 0.1, 0.1, 0.1)   # Parameters µmax, qpmax, ks, ksp, yxs, yps, σ1, σ2
+X₀ = 0.5  # g/L
+S₀ = 10.0 # g/L
+P₀ = 0.0  # g/L
+u₀ = [S₀, X₀, P₀]  # Initial concentrations of X, S, and P
+
+# Parameters: μ_max, K_s, Y_s, q_max, K_sp, Y_p, σ1, σ2
+p = (0.3, 2, 0.5, 0.5, 0.5, 0.5, 0.05, 0.05)
+tspan = (0.0, 30.0)  # Time span
 
 # Problem definition
-prob = SDEProblem(f, g, u0, tspan, p)
-sol = solve(prob, EM(), dt=0.01, saveat=0.1)
+prob = SDEProblem(monod, noise, u₀, tspan, p)
 
-# Plot
-plot(sol, label=["X" "Y" "Z"], xlabel="Time", ylabel="Concentration", lw=2, legend=:topright, 
-     title="Stochastic Monod Model", fontfamily="Computer Modern", ylims=(0, 10))
+# Solve the SDE problem
+# Callback to enforce positivity
+positive_cb = ContinuousCallback(
+    (u, t, integrator) -> minimum(u),
+    (integrator) -> integrator.u .= max.(integrator.u, 0.0)
+)
+sol = solve(prob, SOSRI(), callback=positive_cb, dt=0.01, saveat=0.1)
+
+# Plot the solution
+plot(sol, label=["Substrate (S)" "Biomass (X)" "Product (P)"], xlabel="Time (h)", ylabel="Concentration (g/L)", lw=2, legend=:topright, 
+     title="Monod Kinetics", fontfamily="Computer Modern", ylims=(-1, 10), xlims=(0, 30), grid=true)

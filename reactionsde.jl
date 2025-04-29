@@ -37,16 +37,3 @@ sol = solve(prob, EM(), dt=0.01, saveat=0.1)
 # Plot
 plot(sol, label=["x" "y" "z"], xlabel="Time", ylabel="Concentration", lw=2, legend=:topright, 
      title="Stochastic Reaction Model", fontfamily="Computer Modern", ylims=(0, 1.5))
-
-# # Monte Carlo simulation
-# N = 10
-# dt = 0.01
-# tsteps = 0.0:dt:T
-# Y = zeros(length(tsteps), N)
-# for i in 1:N
-#     sol = solve(prob, EM(), dt=dt, saveat=tsteps)
-#     Y[:, i] .= sol[2, :]
-# end
-
-# plot(tsteps, Y, xlabel="Time", ylabel="Concentration Y", lw=2, legend=:topright, 
-#      title="Stochastic Reaction Model", fontfamily="Computer Modern")

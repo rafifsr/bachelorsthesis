@@ -48,6 +48,7 @@ function laguerre_design_matrix(y::Vector{Float64}, d::Int)
 end
 
 # Store all Y trajectories
+Xs = zeros(M, length(tsteps))
 Ys = zeros(M, length(tsteps))
 τ = fill(length(tsteps), M)
 
@@ -56,11 +57,12 @@ prob = SDEProblem(f, g, u0, tspan, p)
 Random.seed!(42)
 for i in 1:M
     sol = solve(prob, EM(), dt=dt, saveat=tsteps)
+    Xs[i, :] .= sol[1,:]
     Ys[i, :] .= sol[2,:]
 end
 
 # Initialize matrices
-V = copy(Ys)
+V = copy(Ys) # copy(Xs)
 degree = 3  # Degree of polynomial basis
 β_matrix = zeros(N, degree + 1)
 
@@ -94,7 +96,7 @@ for n in (length(tsteps)-1):-1:2
 
     # Save regression coefficients
     β_matrix[n, :] .= β
-    
+
 end
 
 # Compute outputs
