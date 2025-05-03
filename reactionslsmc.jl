@@ -25,8 +25,9 @@ end
 function g(du, u, p, t)
     X, Y, Z = u
     σ = p[3]
-    du[2] = -σ * Y
-    du[3] = σ * Y
+    du[1] = 0
+    du[2] = σ * Y
+    du[3] = 0
 end
 
 # Laguerre basis functions up to degree 3
@@ -47,9 +48,11 @@ function laguerre_design_matrix(y::Vector{Float64}, d::Int)
     return Φ
 end
 
-# Store all Y trajectories
+# Store all trajectories
 Xs = zeros(M, length(tsteps))
 Ys = zeros(M, length(tsteps))
+
+# Store stopping times
 τ = fill(length(tsteps), M)
 
 # Simulate all trajectories
@@ -61,16 +64,18 @@ for i in 1:M
     Ys[i, :] .= sol[2,:]
 end
 
-# Initialize matrices
-V = copy(Ys) # copy(Xs)
+# Initialize matrices for Longstaff-Schwartz
+V = copy(Ys) # copy(Xs) if we're using Xs
 degree = 3  # Degree of polynomial basis
 β_matrix = zeros(N, degree + 1)
 
-# Longstaff-Schwartz backward induction
+# Longstaff-Schwartz backward induction in time
 for n in (length(tsteps)-1):-1:2
     y_now = Ys[:, n]
     value_future = V[:, n+1]
 
+    # Optional: Filter out non-positive values (in-the-money paths for options)
+    # all of the values are supposed to be positive
     itm_indices = findall(y -> y > 0, y_now)
     if length(itm_indices) < 10
         continue
@@ -79,12 +84,17 @@ for n in (length(tsteps)-1):-1:2
     y_itm = y_now[itm_indices]
     vf_itm = value_future[itm_indices]
 
+    # Fit polynomial regression using Laguerre basis functions
     Φ = laguerre_design_matrix(y_itm, degree)
     β = Φ \ vf_itm
-
+    
+    # Compute continuation value
+    # Note: This is where the polynomial regression is used to compute the continuation value
     continuation_value = Φ * β
     stop_now = y_itm .> continuation_value
 
+    # Update stopping times
+    # Note: This is where we update the stopping times based on the stopping condition
     for (idx, stop) in zip(itm_indices, stop_now)
         if stop
             V[idx,n] = y_now[idx]
@@ -99,7 +109,7 @@ for n in (length(tsteps)-1):-1:2
 
 end
 
-# Compute outputs
+# Compile outputs
 Y_opt_values = [Ys[i, τ[i]] for i in 1:M]
 τ_times = [tsteps[τ[i]] for i in 1:M]
 
