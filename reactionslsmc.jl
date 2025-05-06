@@ -141,12 +141,11 @@ kde2d = kde(data)
 # Heatmap
 heatmap(kde2d.x, kde2d.y, kde2d.density',
     xlabel="Stopping Time", ylabel="Y at Stopping",
-    title="2D KDE of Stopping Time and Y",
     colorbar_title="Density",
     fontfamily="Computer Modern")
 
 # Save the plot
-savefig("optimal_stopping_time.pdf")
+savefig("Figures/optimal_stopping_time.pdf")
 
 # # 2D histogram (time vs Y value at stopping)
 # time_bins = range(0, T, length=30)
