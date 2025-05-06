@@ -1,7 +1,7 @@
 using Pkg
 Pkg.activate(@__DIR__)
 using DifferentialEquations, LinearAlgebra, Statistics, Random
-using Plots, Distributions, KernelDensity
+using Plots, Distributions, KernelDensity, StatsBase
 
 # Parameters
 p = (0.5, 0.5, 0.5)  # k1, k2, σ
@@ -133,3 +133,32 @@ kde_est = kde(τ_times)
 plot!(kde_est.x, kde_est.density, lw=2, linestyle=:dash, label="KDE")
 
 xlims!(0, 7)
+
+# 2D KDE
+data = hcat(τ_times, Y_opt_values)
+kde2d = kde(data)
+
+# Heatmap
+heatmap(kde2d.x, kde2d.y, kde2d.density',
+    xlabel="Stopping Time", ylabel="Y at Stopping",
+    title="2D KDE of Stopping Time and Y",
+    colorbar_title="Density",
+    fontfamily="Computer Modern")
+
+# Save the plot
+savefig("optimal_stopping_time.pdf")
+
+# # 2D histogram (time vs Y value at stopping)
+# time_bins = range(0, T, length=30)
+# y_bins = range(0, maximum(Y_opt_values), length=30)
+
+# h = fit(Histogram, (τ_times, Y_opt_values), (time_bins, y_bins))
+
+# # Normalize to get a density
+# density = h.weights / sum(h.weights) / ((time_bins[2]-time_bins[1]) * (y_bins[2]-y_bins[1]))
+
+# # Plot heatmap
+# heatmap(h.edges[1], h.edges[2], density', 
+#     xlabel="Stopping Time", ylabel="Y at Stopping", 
+#     title="Joint PDF of Stopping Time and Y", 
+#     colorbar_title="Density")
