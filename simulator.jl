@@ -1,9 +1,9 @@
-module MonodSDEsim
+module simulator
     using Pkg
     Pkg.activate(@__DIR__)
     using DifferentialEquations
 
-    export monod, simulate_paths
+    export monod, simulate_paths, laguerre_design_matrix
 
     function monod(
         params::Dict,
@@ -87,4 +87,25 @@ module MonodSDEsim
         return results
     end # function simulate_paths
 
-end # module MonodSDEsim
+    # Laguerre basis functions
+    function laguerre_design_matrix(
+        y::Vector{Float64}, 
+        d::Int)
+
+        Φ = zeros(length(y), d + 1)
+        for i in 1:length(y)
+            Φ[i,1] = 1.0
+            if d >= 1
+                Φ[i,2] = 1 - y[i]
+            end
+            if d >= 2
+                Φ[i,3] = 1 - 2*y[i] + 0.5*y[i]^2
+            end
+            if d >= 3
+                Φ[i,4] = 1 - 3*y[i] + 1.5*y[i]^2 - (1/6)*y[i]^3
+            end
+        end
+        return Φ
+    end # function laguerre_design_matrix
+
+end # module simulator
