@@ -10,41 +10,62 @@ function simulate(
     tspan::Tuple{Float64, Float64},
     u0::Dict)
     
-    # Unpack parameters
-    μ_max, K_s, Y_sx, q_max, K_sp, Y_sp, k_d, k_z, σ1, σ2, σ3 = params["μ_max"], params["K_s"], params["Y_sx"], params["q_max"], params["K_sp"], params["Y_sp"], params["k_d"], params["k_z"], params["σ1"], params["σ2"], params["σ3"]
-    p = (μ_max, K_s, Y_sx, q_max, K_sp, Y_sp, k_d, k_z, σ1, σ2, σ3)
+    μ_max = params["μ_max"] 
+    K_sx = params["K_sx"] 
+    Y_xs = params["Y_xs"]
+    Y_ys = params["Y_ys"]
+    m_s = params["m_s"]
+    q_max_y = params["q_max_y"]
+    K_sy = params["K_sy"]
+    q_max_z = params["q_max_z"]
+    K_sz = params["K_sz"]
+    σs = params["σs"] 
+    K_σs = params["K_σs"]
+    σx = params["σx"] 
+    K_σx = params["K_σx"]
+    σy = params["σy"]
+    K_σy = params["K_σy"] 
+    σz = params["σz"]
+    K_σz = params["K_σz"]
+
+    # Pack the parameters into a tuple
+    p = (μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, q_max_z, K_sz, σs, K_σs, σx, K_σx, σy, K_σy, σz, K_σz)
 
     # Drift term
     function drift!(du, u, p, t)
-        S, X, P, Z = u
+        S, X, Y, Z = u
+
+        μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, q_max_z, K_sz = p[1:9]
        
-        µ = μ_max * S / (K_s + S)  # Monod growth rate
-        q = q_max * S / (K_sp + S)  # BioVT product formation rate
+        μ_x = μ_max * (S / (K_sx + S))
+        q_py = q_max_y * (S / (K_sy + S))
+        q_pz = q_max_z * (Y / (K_sz + Y))
         
         # BioVT
-        dS = - (1 / Y_sx) * μ * X - (1 / Y_sp) * q * X
-        dX = μ * X - k_z * P * X - k_d * X
-        dP = q * X - k_z * P * X
-        dZ = k_z * P * X
+        dS = - (1 / Y_xs) * μ_x * X - (1 / Y_ys) * q_py * X - m_s * X
+        dX = μ_x * X
+        dY = q_py * X - q_pz * X
+        dZ = q_pz * X
 
         du[1] = dS
         du[2] = dX
-        du[3] = dP
+        du[3] = dY
         du[4] = dZ
     end
 
     # Diffusion term
     function diffusion!(du, u, p, t)
-        S, X, P, Z = u
-        du[1] = -(σ1 + σ2) * X * S
-        du[2] = σ1 * X * S
-        du[3] = σ2 * X * S
-        du[4] = σ3 * X * P
+        S, X, Y, Z = u
+        σs, K_σs, σx, K_σx, σy, K_σy, σz, K_σz = p[10:17]
+        du[1] = σs * (S / (K_σs + S)) * X
+        du[2] = σx * (S / (K_σx + S)) * X
+        du[3] = σy * (S / (K_σy + S)) * X
+        du[4] = σz * (Y / (K_σz + Y)) * X
     end
 
     # Initial conditions
-    S0, X0, P0, Z0 = u0["S0"], u0["X0"], u0["P0"], u0["Z0"]
-    u_0 = [S0, X0, P0, Z0]  # Initial concentrations of S, X, P, and Z
+    S0, X0, Y0, Z0 = u0["S0"], u0["X0"], u0["Y0"], u0["Z0"]
+    u_0 = [S0, X0, Y0, Z0]  # Initial concentrations of S, X, Y, and Z
 
     # Problem definition
     prob = SDEProblem(drift!, diffusion!, u_0, tspan, p)
