@@ -8,7 +8,8 @@ module simulator
     function monod(
         params::Dict,
         tspan::Tuple{Float64, Float64},
-        u0::Dict)
+        u0::Dict,
+        dt::Float64 = 0.01)
         
         μ_max = params["μ_max"] 
         K_sx = params["K_sx"] 
@@ -30,6 +31,7 @@ module simulator
 
         # Pack the parameters into a tuple
         p = (μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, q_max_z, K_sz, σs, K_σs, σx, K_σx, σy, K_σy, σz, K_σz)
+        tsteps = tspan[1]:dt:tspan[2]  # Time steps for the simulation
 
         # Drift term
         function drift!(du, u, p, t)
@@ -69,20 +71,21 @@ module simulator
 
         # Problem definition
         prob = SDEProblem(drift!, diffusion!, u_0, tspan, p)
-        sol = solve(prob, EM(), dt=0.01, saveat=0.1)
+        sol = solve(prob, EM(), dt=dt, saveat=tsteps)
         return sol
     end # function monod
 
     # Run M simulations and collect results
     function simulate_paths(
         params::Dict, 
-        tspan::Tuple{Float64, Float64}, 
+        tspan::Tuple{Float64, Float64},
         u0::Dict, 
-        M::Int)
+        M::Int,
+        dt::Float64 = 0.01)
 
         results = Vector{Any}(undef, M)
         for i in 1:M
-            results[i] = monod(params, tspan, u0)
+            results[i] = monod(params, tspan, u0, dt)
         end
         return results
     end # function simulate_paths
