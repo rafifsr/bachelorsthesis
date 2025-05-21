@@ -59,10 +59,10 @@ module simulator
         function diffusion!(du, u, p, t)
             S, X, Y, Z = u
             σs, K_σs, σx, K_σx, σy, K_σy, σz, K_σz = p[10:17]
-            du[1] = σs * (S / (K_σs + S)) * X
-            du[2] = σx * (S / (K_σx + S)) * X
-            du[3] = σy * (S / (K_σy + S)) * X
-            du[4] = σz * (Y / (K_σz + Y)) * X
+            du[1] = exp(- (S - K_σs)^2/(2 * σs^2))/sqrt(2 * pi * σs^2) * X
+            du[2] = exp(- (S - K_σx)^2/(2 * σx^2))/sqrt(2 * pi * σx^2) * X
+            du[3] = exp(- (S - K_σy)^2/(2 * σy^2))/sqrt(2 * pi * σy^2) * X
+            du[4] = exp(- (Y - K_σz)^2/(2 * σz^2))/sqrt(2 * pi * σz^2) * X
         end
 
         # Initial conditions
