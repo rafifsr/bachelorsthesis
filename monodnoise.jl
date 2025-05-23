@@ -8,12 +8,11 @@ using Plots, LaTeXStrings, Measures, Distributions
 K_s_display = 2.0  # For visual display and annotation
 K_s_monod = 1    # For Monod curve shape
 σ = 0.5
-gauss_scale = 0.3
 
 # Equations
-mu(S) = μ_max * S / (K_s_monod + S)
-@info "K_s_display = $K_s_display"
-gauss(S) = gauss_scale * pdf(Normal(K_s_display, σ), S)
+mu(S) = μ_max * S / (K_s_display + S)
+gauss(S) = σ * pdf(LogNormal(log(K_s_display) + σ^2, σ), S)
+# gauss(S) = σ * pdf(Normal(K_s_display, σ), S)
 
 # Values
 S_vals = 0:0.01:10
@@ -27,8 +26,8 @@ plt = plot(S_vals, μ_vals,
     lw = 2,
     legend = false,
     color = :blue,
-    xlims = (0, 4),
-    ylims = (0.0, 0.5),
+    xlims = (0, 10),
+    ylims = (0.0, 0.6),
     ticks = false,
     left_margin = 7mm,
     bottom_margin = 7mm,
@@ -36,8 +35,12 @@ plt = plot(S_vals, μ_vals,
     yguidefont = font(10, "Computer Modern", :blue))
 
 # Add visual markers (on main axis only)
-hline!(plt, [μ_max_display], linestyle = :dash, color = :black, label = "")
-annotate!(plt, 0.3, μ_max_display + 0.015, text(L"\mu_{\max}", :right, 10, :blue))
+hline!(plt, [μ_max], linestyle = :dash, color = :black, label = "")
+annotate!(plt, 0.7, μ_max + 0.015, text(L"\mu_{\max}", :right, 10, :blue))
+
+plot!(plt, 0:0.01:K_s_display, fill(μ_max/2, Int(K_s_display / 0.01) + 1),
+    linestyle = :dash, color = :black, label = "")
+annotate!(plt, 1, μ_max/2 + 0.02, text(L"\mu_{\max}/2", :right, 10, :blue))
 
 vline!(plt, [K_s_display], linestyle = :dash, color = :black, label = "")
 annotate!(plt, K_s_display + 0.04, 0.015, text(L"K_s", :left, 10, :black))
@@ -50,12 +53,15 @@ plot!(gauss_ax, S_vals, g_vals,
     color = :green,
     linestyle = :dot,
     legend = false,
-    xlims = (0, 4),
-    ylims = (0, 0.5),
+    xlims = (0, 10),
+    ylims = (0, 0.6),
     ticks = false,
     yguidefont = font(10, "Computer Modern", :green))
 
-hline!(plt, [maximum(g_vals)], linestyle = :dash, color = :black, label = "")
-annotate!(plt, 4, maximum(g_vals) + 0.0125, text(L"\sigma_{\max}", :right, 10, :green))
+x_interval = K_s_display:0.01:10  # Define the specific interval for x
+y_value = maximum(g_vals)
+plot!(plt, x_interval, fill(y_value, length(x_interval)),
+    linestyle = :dash, color = :black, label = "")
+annotate!(plt, 10, y_value + 0.0125, text(L"\sigma_{\max}", :right, 10, :green))
 
-savefig(plt, "Figures/monod_equation.pdf")
+savefig(plt, "Figures/musigma.pdf")
