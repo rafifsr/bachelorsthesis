@@ -1,7 +1,7 @@
 module simulator
     using Pkg
     Pkg.activate(@__DIR__)
-    using DifferentialEquations
+    using DifferentialEquations, Random, Distributions, Statistics
 
     export monod, simulate_paths, laguerre_design_matrix
 
@@ -58,11 +58,12 @@ module simulator
         # Diffusion term
         function diffusion!(du, u, p, t)
             S, X, Y, Z = u
-            σs, K_σs, σx, K_σx, σy, K_σy, σz, K_σz = p[10:17]
-            du[1] = exp(- (S - K_σs)^2/(2 * σs^2))/sqrt(2 * pi * σs^2) * X
-            du[2] = exp(- (S - K_σx)^2/(2 * σx^2))/sqrt(2 * pi * σx^2) * X
-            du[3] = exp(- (S - K_σy)^2/(2 * σy^2))/sqrt(2 * pi * σy^2) * X
-            du[4] = exp(- (Y - K_σz)^2/(2 * σz^2))/sqrt(2 * pi * σz^2) * X
+            μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, q_max_z, K_sz, σs, K_σs, σx, K_σx, σy, K_σy, σz, K_σz = p
+            µ_s = μ_max/Y_xs + q_max_y/Y_ys
+            du[1] = σs * pdf(LogNormal(log(K_σs) + µ_s^2, µ_s), S) * X
+            du[2] = σx * pdf(LogNormal(log(K_σx) + μ_max^2, μ_max), S) * X
+            du[3] = σy * pdf(LogNormal(log(K_σy) + q_max_y^2, q_max_y), S) * X
+            du[4] = σz * pdf(LogNormal(log(K_σz) + q_max_z^2, q_max_z), Y) * X
         end
 
         # Initial conditions
