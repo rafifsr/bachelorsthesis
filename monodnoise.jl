@@ -4,15 +4,13 @@ using Plots, LaTeXStrings, Measures, Distributions
 
 # Parameters
 μ_max = 0.5     # 1/h
-μ_max_display = 0.45  # For visual display and annotation
-K_s_display = 2.0  # For visual display and annotation
-K_s_monod = 1    # For Monod curve shape
-σ = 0.5
+K_s = 2.0  # For visual display and annotation
+µ_ln = log(K_s) + μ_max^2 # Mean of the log-normal distribution
 
 # Equations
-mu(S) = μ_max * S / (K_s_display + S)
-gauss(S) = σ * pdf(LogNormal(log(K_s_display) + σ^2, σ), S)
-# gauss(S) = σ * pdf(Normal(K_s_display, σ), S)
+mu(S) = μ_max * S / (K_s + S)
+gauss(S) = μ_max * pdf(LogNormal(log(K_s)+ μ_max^2, μ_max), S) 
+# gauss(S) = μ_max^2 * pdf(Normal(K_s_display, σ), S)
 
 # Values
 S_vals = 0:0.01:10
@@ -38,12 +36,12 @@ plt = plot(S_vals, μ_vals,
 hline!(plt, [μ_max], linestyle = :dash, color = :black, label = "")
 annotate!(plt, 0.7, μ_max + 0.015, text(L"\mu_{\max}", :right, 10, :blue))
 
-plot!(plt, 0:0.01:K_s_display, fill(μ_max/2, Int(K_s_display / 0.01) + 1),
+plot!(plt, 0:0.01:K_s, fill(μ_max/2, Int(K_s / 0.01) + 1),
     linestyle = :dash, color = :black, label = "")
 annotate!(plt, 1, μ_max/2 + 0.02, text(L"\mu_{\max}/2", :right, 10, :blue))
 
-vline!(plt, [K_s_display], linestyle = :dash, color = :black, label = "")
-annotate!(plt, K_s_display + 0.04, 0.015, text(L"K_s", :left, 10, :black))
+vline!(plt, [K_s], linestyle = :dash, color = :black, label = "")
+annotate!(plt, K_s + 0.04, 0.015, text(L"K_s", :left, 10, :black))
 
 # Plot Gaussian on twin axis
 gauss_ax = twinx(plt)
@@ -58,10 +56,11 @@ plot!(gauss_ax, S_vals, g_vals,
     ticks = false,
     yguidefont = font(10, "Computer Modern", :green))
 
-x_interval = K_s_display:0.01:10  # Define the specific interval for x
+x_interval = K_s:0.01:10  # Define the specific interval for x
 y_value = maximum(g_vals)
 plot!(plt, x_interval, fill(y_value, length(x_interval)),
     linestyle = :dash, color = :black, label = "")
 annotate!(plt, 10, y_value + 0.0125, text(L"\sigma_{\max}", :right, 10, :green))
 
-savefig(plt, "Figures/musigma.pdf")
+# savefig(plt, "Figures/musigma_normal.pdf")
+# savefig(plt, "Figures/musigma_lognormal.pdf")
