@@ -14,11 +14,6 @@ params = Dict(
     :sigmaY => 0.25,
     :KσY => 0.9,
 
-    :qZmax => 0.3,
-    :KSZ => 1.1,
-    :sigmaZ => 0.3,
-    :KσZ => 0.7,
-
     :YXS => 0.45,
     :YYS => 0.3,
     :mS => 0.05,
@@ -28,32 +23,29 @@ params = Dict(
 
 # Drift function f(x, t)
 function f(x, t; p=params)
-    X, Y, Z, S = x
+    X, Y, S = x
 
     μ = p[:muXmax] * S / (p[:KSX] + S)
     qY = p[:qYmax] * S / (p[:KSY] + S)
-    qZ = p[:qZmax] * Y / (p[:KSZ] + Y)
 
     dX = μ * X
-    dY = (qY - qZ) * X
-    dZ = qZ * X
+    dY = qY * X
     dS = (-1/p[:YXS]) * μ * X - (1/p[:YYS]) * qY * X - p[:mS] * X
 
-    return [dX, dY, dZ, dS]
+    return [dX, dY, dS]
 end
 
 # Diffusion function g(x, t): ℝ → ℝ⁴
 function g(x, t; p=params)
-    X, Y, Z, S = x
+    X, Y, S = x
 
     G(σ, Kσ, var) = exp(-0.5 * ((Kσ - var)/σ)^2) / sqrt(2π)
 
     dX = (X / p[:sigmaX]) * G(p[:sigmaX], p[:KσX], S)
     dY = (X / p[:sigmaY]) * G(p[:sigmaY], p[:KσY], S)
-    dZ = (X / p[:sigmaZ]) * G(p[:sigmaZ], p[:KσZ], Y)
     dS = (X / p[:sigmaS]) * G(p[:sigmaS], p[:KσS], S)
 
-    return [dX, dY, dZ, dS]
+    return [dX, dY, dS]
 end
 
 # μ_X and σ_sub as functions of S
@@ -67,8 +59,8 @@ function compute_sigma_sub(S, p)
     return (1 / (σ * sqrt(2π))) * exp(-0.5 * ((Kσ - S) / σ)^2)
 end
 
-# Euler-Maruyama with clipping on S equation only
-function euler_maruyama_substrate_clipped(f, g, x0, tspan, dt; p=params)
+# Euler-Maruyama with full noise clipping and non-negative projection
+function euler_maruyama_clipped_nonneg(f, g, x0, tspan, dt; p=params)
     t0, tf = tspan
     N = Int(round((tf - t0) / dt))
     t = range(t0, length=N+1, step=dt)
@@ -77,36 +69,35 @@ function euler_maruyama_substrate_clipped(f, g, x0, tspan, dt; p=params)
 
     for i in 1:N
         ξ = randn()
-        dBt = sqrt(dt) * ξ
-
-        S = x[4, i]  # S is the 4th state component
+        S = x[3, i]
 
         μX = compute_muX(S, p)
         σsub = compute_sigma_sub(S, p)
         ξ_bound = μX * sqrt(dt) / σsub
 
-        # Clip only the diffusion in S direction
-        drift = f(x[:, i], t[i]; p=p)
-        diffusion = g(x[:, i], t[i]; p=p)
-
-        dBt_vec = diffusion .* dBt
+        # Clip noise for all components
         if abs(ξ) > ξ_bound
             ξ = sign(ξ) * ξ_bound
-            dBt_vec[4] = diffusion[4] * sqrt(dt) * ξ
         end
 
-        x[:, i+1] = x[:, i] + drift * dt + dBt_vec
+        drift = f(x[:, i], t[i]; p=p)
+        diffusion = g(x[:, i], t[i]; p=p)
+        dBt_vec = diffusion .* (sqrt(dt) * ξ)
+
+        x_next = x[:, i] + drift * dt + dBt_vec
+        x[:, i+1] = max.(x_next, 0.0)  # Projection onto ℝ⁴₊
     end
 
     return t, x
 end
 
 # Example usage
-x0 = [0.1, 0.0, 0.0, 5.0]
-tspan = (0.0, 10.0)
+x0 = [0.1, 0.0, 5.0]
+T = 10.0
+tspan = (0.0, T)
 dt = 0.01
 
-t, x = euler_maruyama_substrate_clipped(f, g, x0, tspan, dt)
+t, x = euler_maruyama_clipped_nonneg(f, g, x0, tspan, dt)
 
-plot(t, x', label=["X" "Y" "Z" "S"], xlabel="Time", ylabel="Concentration",
-     title="Stochastic Bioprocess with Substrate Noise Clipping")
+plot(t, x', label=["X" "Y" "S"], xlabel="Time", ylabel="Concentration")
+plot!(xlims=(0, T), ylim=(0, x0[end]), legend=:topright, fontfamily="Computer Modern")
