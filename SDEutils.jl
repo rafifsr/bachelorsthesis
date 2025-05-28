@@ -1,31 +1,38 @@
-module clippedSDE
+module SDEutils
+
     using Pkg
     Pkg.activate(@__DIR__)
     using DifferentialEquations, Random, Distributions, Statistics
 
     export kinetics, simulate_paths, laguerre_design_matrix
 
-    struct BoundedNoise{T}
-        ϵ::T # |ΔBₜ| ≤ ϵ ⋅ Δt
-        dim::Int
-    end
+    """
+    kinetics(params::Dict, T::Float64, u0::Dict; dt::Float64=0.01)
 
-    import Base: copy
+    Simulates the kinetics of a system using a stochastic differential equation (SDE) model.
 
-    function copy(bn::BoundedNoise)
-        return BoundedNoise(bn.ϵ, bn.dim)
-    end
+    # Arguments
+    - `params::Dict`: A dictionary containing the parameters for the kinetics. Expected keys:
+        - `"μ_max"`: Maximum specific growth rate.
+        - `"K_sx"`: Saturation constant for substrate.
+        - `"Y_xs"`: Yield coefficient for biomass on substrate.
+        - `"Y_ys"`: Yield coefficient for product on substrate.
+        - `"m_s"`: Maintenance coefficient for substrate.
+        - `"q_max_y"`: Maximum specific production rate of product.
+        - `"K_sy"`: Saturation constant for product.
+        - `"σs"`: Noise scaling parameter for substrate.
+        - `"σx"`: Noise scaling parameter for biomass.
+        - `"σy"`: Noise scaling parameter for product.
+    - `T::Float64`: Total simulation time.
+    - `u0::Dict`: Initial conditions as a dictionary with keys `"S0"`, `"X0"`, and `"Y0"`.
+    - `dt::Float64`: Time step for the simulation (default is `0.01`).
 
-    function reset!(bn::BoundedNoise)
-        return nothing
-    end
+    # Returns
+    - `sol`: The solution object containing the simulated paths for substrate, biomass, and product concentrations.
 
-    function (bn::BoundedNoise)(integrator)
-        dt = integrator.dt
-        dBt = sqrt(dt) * randn(bn.dim)
-        max_jump = bn.ϵ * dt
-        return clamp.(dBt, -max_jump, max_jump)
-    end
+    # Notes
+    - The function uses a discrete callback to ensure that the solution remains non-negative.
+    """
 
     function kinetics(
         params::Dict, # Parameters for the kinetics
@@ -89,6 +96,15 @@ module clippedSDE
             du[2] = σx * pdf(LogNormal(log(K_sx)+ μ_max^2, μ_max), S) * X
             du[3] = σy * pdf(LogNormal(log(K_sy)+ q_max_y^2, q_max_y), S) * X
         end
+    
+        # function diffusion!(du, u, p, t)
+        #     S, X, Y = u
+        #     μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, σs, σx, σy, K_ss, µ_s = p
+        #     du[1] = σs * pdf(Normal(K_ss , µ_s), S) * X
+        #     du[2] = σx * pdf(Normal(K_sx , μ_max), S) * X
+        #     du[3] = σy * pdf(Normal(K_sy , q_max_y), S) * X
+        # end
+        
 
         # Project solution to stay ≥ 0
         function project!(integrator)
@@ -106,8 +122,23 @@ module clippedSDE
         # Solve the SDE problem
         sol = solve(prob, EM(), dt = dt, saveat = dt, callback = proj_cb)
         return sol
-
     end # end the function kinetics
+
+    """
+    simulate_paths(params::Dict, T::Float64, u0::Dict, M::Int; dt::Float64=0.01)
+
+    Simulates multiple paths of the system using the `kinetics` function.
+
+    # Arguments
+    - `params::Dict`: A dictionary containing the parameters for the simulation (see `kinetics` for details).
+    - `T::Float64`: Total simulation time.
+    - `u0::Dict`: Initial conditions as a dictionary with keys `"S0"`, `"X0"`, and `"Y0"`.
+    - `M::Int`: Number of paths to simulate.
+    - `dt::Float64`: Time step for the simulation (default is `0.01`).
+
+    # Returns
+    - `solutions::Vector{Any}`: A vector containing the solution objects for each simulated path.
+    """
 
     function simulate_paths(
         params::Dict, # Parameters for the simulation
@@ -121,10 +152,24 @@ module clippedSDE
             solutions[i] = kinetics(params, T, u0, dt)
         end
         return solutions
-
     end # end the function simulate_paths
 
-    # Laguerre basis functions
+    """
+    laguerre_design_matrix(y::Vector{Float64}, d::Int)
+
+    Generates a design matrix using Laguerre basis functions.
+
+    # Arguments
+    - `y::Vector{Float64}`: Input vector for which the Laguerre basis functions are computed.
+    - `d::Int`: Degree of the Laguerre basis functions.
+
+    # Returns
+    - `Φ::Matrix{Float64}`: A matrix where each row corresponds to the Laguerre basis functions evaluated at the corresponding element of `y`.
+
+    # Notes
+    - The Laguerre basis functions are computed up to degree `d`. If `d` is greater than 3, only the first four basis functions are implemented.
+    """
+
     function laguerre_design_matrix(
         y::Vector{Float64}, 
         d::Int)
@@ -143,7 +188,6 @@ module clippedSDE
             end
         end
         return Φ
-
     end # end the function laguerre_design_matrix
 
-end # end the module clippedSDE.jl
+end # end the module SDEutils.jl
