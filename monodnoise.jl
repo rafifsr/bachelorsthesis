@@ -9,8 +9,8 @@ K_s = 2.0  # For visual display and annotation
 
 # Equations
 mu(S) = μ_max * S / (K_s + S)
-# gauss(S) = μ_max * pdf(LogNormal(log(K_s)+ μ_max^2, μ_max), S) 
-gauss(S) = μ_max^2 * pdf(Normal(K_s, μ_max), S)
+gauss(S) = μ_max * pdf(LogNormal(log(K_s)+ μ_max^2, μ_max), S) 
+# gauss(S) = μ_max^2 * pdf(Normal(K_s, μ_max), S)
 
 # Values
 S_vals = 0:0.01:10

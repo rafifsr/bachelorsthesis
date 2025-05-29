@@ -104,7 +104,6 @@ module SDEutils
         #     du[2] = σx * pdf(Normal(K_sx , μ_max), S) * X
         #     du[3] = σy * pdf(Normal(K_sy , q_max_y), S) * X
         # end
-        
 
         # Project solution to stay ≥ 0
         function project!(integrator)
@@ -116,12 +115,15 @@ module SDEutils
         # ϵ = µ_s/K_ss # Bounded noise parameter
         # bn = BoundedNoise(ϵ, 3) # Create a bounded noise instance
 
-        # Define the SDE problem
-        prob = SDEProblem(drift!, diffusion!, u_0, (0.0, T), p)
+        # Define the problem
+        sdeprob = SDEProblem(drift!, diffusion!, u_0, (0.0, T), p)
+        odeprob = ODEProblem(drift!, u_0, (0.0, T), p)
 
-        # Solve the SDE problem
-        sol = solve(prob, EM(), dt = dt, saveat = dt, callback = proj_cb)
-        return sol
+        # Solve the problem
+        sdesol = solve(sdeprob, EM(), dt = dt, saveat = dt, callback = proj_cb)
+        odesol = solve(odeprob, Tsit5(), dt = dt, saveat = dt)
+
+        return sdesol, odesol
     end # end the function kinetics
 
     """
@@ -147,11 +149,13 @@ module SDEutils
         M::Int, # Number of paths to simulate
         dt::Float64 = 0.01) # Default time step
 
-        solutions = Vector{Any}(undef, M)
+        sdesolutions = Vector{Any}(undef, M)
         for i in 1:M
-            solutions[i] = kinetics(params, T, u0, dt)
+            sdesolutions[i] = kinetics(params, T, u0, dt)[1] # Store SDE solutions
         end
-        return solutions
+        odesolution = kinetics(params, T, u0, dt)[2] # Store ODE solution
+        
+        return sdesolutions, odesolution
     end # end the function simulate_paths
 
     """
