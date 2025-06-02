@@ -53,48 +53,57 @@ module SDEutils
         q_max_y = params["q_max_y"]
         K_sy = params["K_sy"]
 
+        # By-product kinetics
+        q_max_z = params["q_max_z"]
+        K_sz = params["K_sz"]
+
         # Noise scaling parameters
         σs = params["σs"]
         σx = params["σx"]
         σy = params["σy"]
+        σz = params["σz"]
 
         # Substrate noise parameters
         K_ss = K_sx/Y_xs + K_sy/Y_ys
         µ_s = μ_max/Y_xs + q_max_y/Y_ys
 
         # Pack the parameters into a tuple
-        p = (μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, σs, σx, σy, K_ss, µ_s)
+        p = (μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, q_max_z, K_sz, σs, σx, σy, σz, K_ss, µ_s)
 
         # Initial conditions
-        S0, X0, Y0 = u0["S0"], u0["X0"], u0["Y0"]
-        u_0 = [S0, X0, Y0]
+        S0, X0, Y0, Z0 = u0["S0"], u0["X0"], u0["Y0"], u0["Z0"]
+        u_0 = [S0, X0, Y0, Z0]
 
         # Drift term
         function drift!(du, u, p, t)
-            S, X, Y = u
+            S, X, Y, Z = u
 
-            μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy = p[1:7]
+            μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, q_max_z, K_sz = p[1:9]
         
             μ_x = μ_max * (S / (K_sx + S))
             q_py = q_max_y * (S / (K_sy + S))
+            q_pz = q_max_z * (Y / (K_sz + Y))
             
             # BioVT
             dS = - (1 / Y_xs) * μ_x * X - (1 / Y_ys) * q_py * X - m_s * X
             dX = μ_x * X
-            dY = q_py * X
+            dY = q_py * X - q_pz * Y
+            dZ = q_pz * Y
             
             du[1] = dS
             du[2] = dX
             du[3] = dY
+            du[4] = dZ
         end
 
         # Diffusion term
         function diffusion!(du, u, p, t)
-            S, X, Y = u
-            μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, σs, σx, σy, K_ss, µ_s = p
+            S, X, Y, Z = u
+            μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, q_max_z, K_sz, σs, σx, σy, σz, K_ss, µ_s = p
             du[1] = σs * pdf(LogNormal(log(K_ss) + µ_s^2, µ_s), S) * X
             du[2] = σx * pdf(LogNormal(log(K_sx)+ μ_max^2, μ_max), S) * X
             du[3] = σy * pdf(LogNormal(log(K_sy)+ q_max_y^2, q_max_y), S) * X
+            du[4] = σz * pdf(LogNormal(log(K_sz)+ q_max_z^2, q_max_z), Y) * Y
         end
     
         # function diffusion!(du, u, p, t)
@@ -129,66 +138,6 @@ module SDEutils
 
         return sdesol, odesol
     end # end the function kinetics
-
-    function kineticsMA(
-        params::Dict, # Parameters for the kinetics
-        T::Float64, # Total time for the simulation
-        u0::Dict, # Initial conditions
-        dt::Float64 = 0.01) # Default time step
-
-        µ_max = params["µ_max"]
-        µ2_max = params["µ2_max"]
-        K_fg = params["K_fg"]
-        K_N = params["K_N"]
-        K_fg2 = params["K_fg2"]
-        K_IN = params["K_IN"]
-        ϕ_X = params["ϕ_X"]
-        q_split_max = params["q_split_max"]
-        K_suc = params["K_suc"]
-        q_p_max = params["q_p_max"]
-        K_p_fg = params["K_p_fg"]
-        K_IP = params["K_IP"]
-        Y_active_S = params["Y_active_S"]
-        Y_inactive_S = params["Y_inactive_S"]
-        Y_ps = params["Y_ps"]
-        Y_active_N = params["Y_active_N"]
-        acc = params["acc"]
-
-        p = (µ_max, µ2_max, K_fg, K_N, K_fg2, K_IN, ϕ_X, q_split_max, K_suc, q_p_max, K_p_fg, K_IP, Y_active_S, Y_inactive_S, Y_ps, Y_active_N, acc)
-        X_a0, X_i0, Suc0, FG0, N0, P0 = u0["X_a0"], u0["X_i0"], u0["Suc0"], u0["FG0"], u0["N0"], u0["P0"]
-        u_0 = [X_a0, X_i0, Suc0, FG0, N0, P0]
-
-        # Drift term
-        function drift!(du, u, p, t)
-            X_a, X_i, Suc, FG, N, P = u
-            µ_max, µ2_max, K_fg, K_N, K_fg2, K_IN, ϕ_X, q_split_max, K_suc, q_p_max, K_p_fg, K_IP, Y_active_S, Y_inactive_S, Y_ps, Y_active_N, acc = p
-
-            # Algebraic equations
-            X_total = X_a + X_i
-            X_ratio = X_i / X_a
-            N_int = 0.08 * N
-
-            # Specific growth rates
-            µ = µ_max * (FG / (FG + K_fg)) * (N / (K_N + N))
-            µ2 = µ2_max * (FG / (FG + K_fg2)) * (K_IN / (K_IN + N)) * (1 - exp((X_ratio - ϕ_X) / acc))
-            q_split = q_split_max * (Suc / (K_suc + Suc))
-            q_p = q_p_max * (FG / (K_p_fg + FG)) * (K_IN / (K_IN + N)) * (K_IP / (K_IP + N_int / X_total))
-
-            # Differential equations
-            du[1] = µ * X_a
-            du[2] = µ2 * X_a
-            du[3] = - q_split * X_a
-            du[4] = (q_split - µ / Y_active_S - µ2 / Y_inactive_S - q_p / Y_ps) * X_a
-            du[5] = - µ * X_a / Y_active_N
-            du[6] = q_p * X_a
-
-        end
-
-        odeprob = ODEProblem(drift!, u_0, (0.0, T), p)
-        odesol = solve(odeprob, Tsit5(), dt = dt, saveat = dt)
-        
-        return odesol
-    end # end the function kineticsMA
 
     """
     simulate_paths(params::Dict, T::Float64, u0::Dict, M::Int; dt::Float64=0.01)
