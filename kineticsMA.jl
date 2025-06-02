@@ -39,21 +39,23 @@ function odes!(du, u, p, t)
     expo_term = (ratio - ϕ) / χacc
     μ2 = μ2max * FruGlu / (FruGlu + KFG2) * (1 - exp(expo_term))
 
-    if N > 0 && Suc > 0
-        du[1] = μ * Xact
-        du[2] = 0.0
-        du[3] = - μ / YXa_N * Xact
-        du[4] = - qsplit * Xact
-        du[5] = (qsplit - μ / YXa_S) * Xact
-        du[6] = 0.0
-    elseif N > 0 && Suc == 0
-        du[1] = μ * Xact
-        du[2] = 0.0
-        du[3] = - μ / YXa_N * Xact
-        du[4] = 0.0
-        du[5] = (- μ / YXa_S) * Xact
-        du[6] = 0.0
-    else # if N == 0 && Suc == 0
+    if N > 0
+        if Suc >= 0.0
+            du[1] = μ * Xact
+            du[2] = 0.0
+            du[3] = - μ / YXa_N * Xact
+            du[4] = - qsplit * Xact
+            du[5] = (qsplit - μ / YXa_S) * Xact
+            du[6] = 0.0
+        else
+            du[1] = μ * Xact
+            du[2] = 0.0
+            du[3] = - μ / YXa_N * Xact
+            du[4] = 0.0
+            du[5] = (- μ / YXa_S) * Xact
+            du[6] = 0.0
+        end
+    else
         du[1] = 0.0
         du[2] = μ2 * Xact
         du[3] = 0.0
@@ -93,7 +95,7 @@ P_sol = sol[6, :]
 
 # === Plotting ===
 using Plots
-plot(P_sol, xlabel="Time (h)", ylabel="Concentration (g/L)", lw=2,
+plot(sol, xlabel="Time (h)", ylabel="Concentration (g/L)", lw=2,
      label=["Xa" "Xin" "N" "Suc" "FruGlu" "MA"], legend=:right, fontfamily="Computer Modern",
      xlims=(0, T) #, ylims=(0, u0[4])
      )
