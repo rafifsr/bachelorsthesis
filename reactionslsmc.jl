@@ -120,19 +120,26 @@ println("Standard deviation of stopping time: ", round(std(τ_times), digits=4),
 println("95% confidence interval for stopping time: ", round(quantile(τ_times, 0.025), digits=4), " to ", round(quantile(τ_times, 0.975), digits=4), " seconds")
 println("95% confidence interval for expected value of Y: ", round(quantile(Y_opt_values, 0.025), digits=4), " to ", round(quantile(Y_opt_values, 0.975), digits=4))
 
-# Plot: Histogram + Gamma fit + KDE
-histogram(τ_times, bins=30, normalize=true, label="Histogram", xlabel="Stopping Time", ylabel="Density", title="Optimal Stopping Time PDF", 
-          legend=:topright, fontfamily="Computer Modern", lw=2, alpha=0.5)
+# Plotting reaction trajectories
+plot(tsteps, Ys[1,:], 
+     xlabel="Time (seconds)", ylabel="Y Concentration", 
+     title="Trajectories of Y Concentration", 
+     legend=false, lw=0.5, alpha=0.1, color=:blue, 
+     fontfamily="Computer Modern")
 
-# Gamma distribution fit
-fit_gamma = fit(Gamma, τ_times)
-plot!(tsteps, pdf.(fit_gamma, tsteps), lw=2, label="Gamma Fit")
+# # Plot: Histogram + Gamma fit + KDE
+# histogram(τ_times, bins=30, normalize=true, label="Histogram", xlabel="Stopping Time", ylabel="Density", title="Optimal Stopping Time PDF", 
+#           legend=:topright, fontfamily="Computer Modern", lw=2, alpha=0.5)
 
-# KDE overlay
-kde_est = kde(τ_times)
-plot!(kde_est.x, kde_est.density, lw=2, linestyle=:dash, label="KDE")
+# # Gamma distribution fit
+# fit_gamma = fit(Gamma, τ_times)
+# plot!(tsteps, pdf.(fit_gamma, tsteps), lw=2, label="Gamma Fit")
 
-xlims!(0, 7)
+# # KDE overlay
+# kde_est = kde(τ_times)
+# plot!(kde_est.x, kde_est.density, lw=2, linestyle=:dash, label="KDE")
+
+# xlims!(0, 7)
 
 # # 2D KDE
 # data = hcat(τ_times, Y_opt_values)
