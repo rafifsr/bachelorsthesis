@@ -38,6 +38,7 @@ module SDEutils
         params::Dict, # Parameters for the kinetics
         T::Float64, # Total time for the simulation
         u0::Dict, # Initial conditions
+        noise::String, # Type of noise to apply ("lognormal", "normal", or "monod")
         dt::Float64 = 0.01) # Default time step
         
         # Biomass kinetics
@@ -96,8 +97,8 @@ module SDEutils
             du[4] = dZ
         end
 
-        # Diffusion term
-        function diffusion!(du, u, p, t)
+        # Diffusion term (lognormal)
+        function lognormal!(du, u, p, t)
             S, X, Y, Z = u
             μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, q_max_z, K_sz, σs, σx, σy, σz, K_ss, µ_s = p
             du[1] = σs * pdf(LogNormal(log(K_ss) + µ_s^2, µ_s), S) * X
@@ -106,21 +107,23 @@ module SDEutils
             du[4] = σz * pdf(LogNormal(log(K_sz)+ q_max_z^2, q_max_z), Y) * Y
         end
     
-        # function diffusion!(du, u, p, t)
-        #     S, X, Y = u
-        #     μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, σs, σx, σy, K_ss, µ_s = p
-        #     du[1] = σs * pdf(Normal(K_ss , µ_s), S) * X
-        #     du[2] = σx * pdf(Normal(K_sx , μ_max), S) * X
-        #     du[3] = σy * pdf(Normal(K_sy , q_max_y), S) * X
-        # end
+        # Diffusion term (normal)
+        function normal!(du, u, p, t)
+            S, X, Y = u
+            μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, σs, σx, σy, K_ss, µ_s = p
+            du[1] = σs * pdf(Normal(K_ss , µ_s), S) * X
+            du[2] = σx * pdf(Normal(K_sx , μ_max), S) * X
+            du[3] = σy * pdf(Normal(K_sy , q_max_y), S) * X
+        end
 
-        # function diffusion!(du, u, p, t)
-        #     S, X, Y = u
-        #     μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, σs, σx, σy, K_ss, µ_s = p
-        #     du[1] = σs * (S / (K_ss + S)) * X
-        #     du[2] = σx * (S / (K_sx + S)) * X
-        #     du[3] = σy * (S / (K_sy + S)) * Y
-        # end
+        # Diffusion term (monod)
+        function monod!(du, u, p, t)
+            S, X, Y = u
+            μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, σs, σx, σy, K_ss, µ_s = p
+            du[1] = σs * (S / (K_ss + S)) * X
+            du[2] = σx * (S / (K_sx + S)) * X
+            du[3] = σy * (S / (K_sy + S)) * Y
+        end
 
         # Project solution to stay ≥ 0
         function project!(integrator)
@@ -129,8 +132,17 @@ module SDEutils
         proj_cb = DiscreteCallback((u,t,integrator) -> true, project!)
 
         # Define the problem
-        sdeprob = SDEProblem(drift!, diffusion!, u_0, (0.0, T), p)
         odeprob = ODEProblem(drift!, u_0, (0.0, T), p)
+
+        if noise == "lognormal"
+            sdeprob = SDEProblem(drift!, lognormal!, u_0, (0.0, T), p)
+        elseif noise == "normal"
+            sdeprob = SDEProblem(drift!, normal!, u_0, (0.0, T), p)
+        elseif noise == "monod"
+            sdeprob = SDEProblem(drift!, monod!, u_0, (0.0, T), p)
+        else
+            error("Invalid noise type. Choose 'lognormal', 'normal', or 'monod'.")
+        end
 
         # Solve the problem
         sdesol = solve(sdeprob, EM(), dt = dt, saveat = dt, callback = proj_cb)
@@ -160,13 +172,14 @@ module SDEutils
         T::Float64, # Total time for the simulation
         u0::Dict, # Initial conditions
         M::Int, # Number of paths to simulate
+        noise::String = "lognormal", # Type of noise to apply ("lognormal", "normal", or "monod")
         dt::Float64 = 0.01) # Default time step
 
         sdesolutions = Vector{Any}(undef, M)
         for i in 1:M
-            sdesolutions[i] = kinetics(params, T, u0, dt)[1] # Store SDE solutions
+            sdesolutions[i] = kinetics(params, T, u0, noise, dt)[1] # Store SDE solutions
         end
-        odesolution = kinetics(params, T, u0, dt)[2] # Store ODE solution
+        odesolution = kinetics(params, T, u0, noise, dt)[2] # Store ODE solution
         
         return sdesolutions, odesolution
     end # end the function simulate_paths
