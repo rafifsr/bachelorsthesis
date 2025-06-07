@@ -3,78 +3,71 @@ module ElemSDEutils
     Pkg.activate(@__DIR__)
     using DifferentialEquations, Random, Distributions, Statistics
 
-    export monod, simulate_paths, laguerre_design_matrix
+    export kinetics, simulate_paths, laguerre_design_matrix
 
-    function monod(
-        params::Dict,
-        tspan::Tuple{Float64, Float64},
-        u0::Dict,
+    function kinetics(
+        params::Dict, 
+        T::Float64,
+        u0::Dict, 
+        noise::String = "noise",
         dt::Float64 = 0.01)
-        
-        μ_max = params["μ_max"] 
-        K_sx = params["K_sx"] 
-        Y_xs = params["Y_xs"]
-        Y_ys = params["Y_ys"]
-        m_s = params["m_s"]
-        q_max_y = params["q_max_y"]
-        K_sy = params["K_sy"]
-        q_max_z = params["q_max_z"]
-        K_sz = params["K_sz"]
-        σs = params["σs"] 
-        K_σs = params["K_σs"]
-        σx = params["σx"] 
-        K_σx = params["K_σx"]
-        σy = params["σy"]
-        K_σy = params["K_σy"] 
-        σz = params["σz"]
-        K_σz = params["K_σz"]
 
-        # Pack the parameters into a tuple
-        p = (μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, q_max_z, K_sz, σs, K_σs, σx, K_σx, σy, K_σy, σz, K_σz)
-        tsteps = tspan[1]:dt:tspan[2]  # Time steps for the simulation
+        tspan = (0.0, T)  # Time span for the simulation
+        u_0 = [u0["X0"], u0["Y0"], u0["Z0"]]  # Initial conditions for X, Y, Z
+        k1 = params[:k1]  # Rate constant for X
+        k2 = params[:k2]  # Rate constant for Y
+        σ = params[:σ]    # Noise scaling parameter
+        K_sy = params[:K_sy]  # Saturation constant for Y
+        p = (k1, k2, σ, K_sy)  # Parameters for the ODE/SDE
 
-        # Drift term
+        # Define the drift and diffusion functions
         function drift!(du, u, p, t)
-            S, X, Y, Z = u
-
-            μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, q_max_z, K_sz = p[1:9]
-        
-            μ_x = μ_max * (S / (K_sx + S))
-            q_py = q_max_y * (S / (K_sy + S))
-            q_pz = q_max_z * (Y / (K_sz + Y))
-            
-            # BioVT
-            dS = - (1 / Y_xs) * μ_x * X - (1 / Y_ys) * q_py * X - m_s * X
-            dX = μ_x * X
-            dY = q_py * X - q_pz * X
-            dZ = q_pz * X
-
-            du[1] = dS
-            du[2] = dX
-            du[3] = dY
-            du[4] = dZ
+            X, Y, Z = u
+            k1, k2 = p[1:2]
+            du[1] = -k1 * X
+            du[2] = k1 * X - k2 * Y
+            du[3] = k2 * Y
         end
 
-        # Diffusion term
-        function diffusion!(du, u, p, t)
-            S, X, Y, Z = u
-            μ_max, K_sx, Y_xs, Y_ys, m_s, q_max_y, K_sy, q_max_z, K_sz, σs, K_σs, σx, K_σx, σy, K_σy, σz, K_σz = p
-            µ_s = μ_max/Y_xs + q_max_y/Y_ys
-            du[1] = σs * pdf(LogNormal(log(K_σs) + µ_s^2, µ_s), S) * X
-            du[2] = σx * pdf(LogNormal(log(K_σx) + μ_max^2, μ_max), S) * X
-            du[3] = σy * pdf(LogNormal(log(K_σy) + q_max_y^2, q_max_y), S) * X
-            du[4] = σz * pdf(LogNormal(log(K_σz) + q_max_z^2, q_max_z), Y) * X
+        function noise!(du, u, p, t)
+            X, Y, Z = u
+            σ, K_sy = p[3:4]
+            du[1] = 0.0
+            du[2] = σ * Y
+            du[3] = 0.0
         end
 
-        # Initial conditions
-        S0, X0, Y0, Z0 = u0["S0"], u0["X0"], u0["Y0"], u0["Z0"]
-        u_0 = [S0, X0, Y0, Z0]  # Initial concentrations of S, X, Y, and Z
+        function monodnoise!(du, u, p, t)
+            X, Y, Z = u
+            σ, K_sy = p[3:4]
+            du[1] = 0.0
+            du[2] = σ * (Y / (K_sy + Y))
+            du[3] = 0.0
+        end
 
-        # Problem definition
-        prob = SDEProblem(drift!, diffusion!, u_0, tspan, p)
-        sol = solve(prob, EM(), dt=dt, saveat=tsteps)
-        return sol
-    end # function monod
+        # Project solution to stay ≥ 0
+        function project!(integrator)
+            integrator.u .= max.(integrator.u, 0.0)
+        end
+        proj_cb = DiscreteCallback((u,t,integrator) -> true, project!)
+
+        # Create the ODE/SDE problem
+        odeprob = ODEProblem(drift!, u_0, tspan, p)
+
+        if noise == "noise"
+            sdeprob = SDEProblem(drift!, noise!, u_0, tspan, p)
+        elseif noise == "monod"
+            sdeprob = SDEProblem(drift!, monodnoise!, u_0, tspan, p)
+        else
+            error("Invalid noise type. Choose 'noise' or 'monod'.")
+        end
+
+        # Solve the ODE/SDE problem
+        odesol = solve(odeprob, Tsit5(), dt=dt, saveat=dt)
+        sdesol = solve(sdeprob, EM(), dt=dt, saveat=dt, callback=proj_cb)
+
+        return sdesol, odesol
+    end # function kinetics
 
     # Run M simulations and collect results
     function simulate_paths(
@@ -82,13 +75,16 @@ module ElemSDEutils
         tspan::Tuple{Float64, Float64},
         u0::Dict, 
         M::Int,
+        noise::String = "noise",
         dt::Float64 = 0.01)
 
-        results = Vector{Any}(undef, M)
+        sderes = Vector{Any}(undef, M)
         for i in 1:M
-            results[i] = monod(params, tspan, u0, dt)
+            sderes[i] = kinetics(params, tspan, u0, noise, dt)[1]
         end
-        return results
+        oderes = kinetics(params, tspan, u0, noise, dt)[2]
+
+        return sderes, oderes
     end # function simulate_paths
 
     # Laguerre basis functions
