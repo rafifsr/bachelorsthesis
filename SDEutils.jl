@@ -4,35 +4,7 @@ module SDEutils
     Pkg.activate(@__DIR__)
     using DifferentialEquations, Random, Distributions, Statistics
 
-    export kinetics, kineticsMA, simulate_paths, laguerre_design_matrix
-
-    """
-    kinetics(params::Dict, T::Float64, u0::Dict; dt::Float64=0.01)
-
-    Simulates the kinetics of a system using a stochastic differential equation (SDE) model.
-
-    # Arguments
-    - `params::Dict`: A dictionary containing the parameters for the kinetics. Expected keys:
-        - `"μ_max"`: Maximum specific growth rate.
-        - `"K_sx"`: Saturation constant for substrate.
-        - `"Y_xs"`: Yield coefficient for biomass on substrate.
-        - `"Y_ys"`: Yield coefficient for product on substrate.
-        - `"m_s"`: Maintenance coefficient for substrate.
-        - `"q_max_y"`: Maximum specific production rate of product.
-        - `"K_sy"`: Saturation constant for product.
-        - `"σs"`: Noise scaling parameter for substrate.
-        - `"σx"`: Noise scaling parameter for biomass.
-        - `"σy"`: Noise scaling parameter for product.
-    - `T::Float64`: Total simulation time.
-    - `u0::Dict`: Initial conditions as a dictionary with keys `"S0"`, `"X0"`, and `"Y0"`.
-    - `dt::Float64`: Time step for the simulation (default is `0.01`).
-
-    # Returns
-    - `sol`: The solution object containing the simulated paths for substrate, biomass, and product concentrations.
-
-    # Notes
-    - The function uses a discrete callback to ensure that the solution remains non-negative.
-    """
+    export kinetics, simulate_paths, laguerre_design_matrix
 
     function kinetics(
         params::Dict, # Parameters for the kinetics
@@ -151,22 +123,6 @@ module SDEutils
         return sdesol, odesol
     end # end the function kinetics
 
-    """
-    simulate_paths(params::Dict, T::Float64, u0::Dict, M::Int; dt::Float64=0.01)
-
-    Simulates multiple paths of the system using the `kinetics` function.
-
-    # Arguments
-    - `params::Dict`: A dictionary containing the parameters for the simulation (see `kinetics` for details).
-    - `T::Float64`: Total simulation time.
-    - `u0::Dict`: Initial conditions as a dictionary with keys `"S0"`, `"X0"`, and `"Y0"`.
-    - `M::Int`: Number of paths to simulate.
-    - `dt::Float64`: Time step for the simulation (default is `0.01`).
-
-    # Returns
-    - `solutions::Vector{Any}`: A vector containing the solution objects for each simulated path.
-    """
-
     function simulate_paths(
         params::Dict, # Parameters for the simulation
         T::Float64, # Total time for the simulation
@@ -183,22 +139,6 @@ module SDEutils
         
         return sdesolutions, odesolution
     end # end the function simulate_paths
-
-    """
-    laguerre_design_matrix(y::Vector{Float64}, d::Int)
-
-    Generates a design matrix using Laguerre basis functions.
-
-    # Arguments
-    - `y::Vector{Float64}`: Input vector for which the Laguerre basis functions are computed.
-    - `d::Int`: Degree of the Laguerre basis functions.
-
-    # Returns
-    - `Φ::Matrix{Float64}`: A matrix where each row corresponds to the Laguerre basis functions evaluated at the corresponding element of `y`.
-
-    # Notes
-    - The Laguerre basis functions are computed up to degree `d`. If `d` is greater than 3, only the first four basis functions are implemented.
-    """
 
     function laguerre_design_matrix(
         y::Vector{Float64}, 
