@@ -6,18 +6,19 @@ using DifferentialEquations, Random, Distributions, Statistics
 params = (
     μmax = 0.125, 
     KFG = 0.147, 
-    KN = 0.001, 
+    KN = 0.000038, 
     YXa_S = 0.531, 
     YXi_S = 0.799, 
     YXa_N = 9.428, 
     YP_S = 0.508, 
     ϕ = 1.56, 
-    χacc = 1,
+    χacc = 0.3,
     μ2max = 0.125, 
     qsplit_max = 1.985, 
     Ksuc = 0.00321, 
-    qpmax = 28.188, 
-    KIP = 0.000147, 
+    qpmax = 0.28188, 
+    KIP = 0.000147, # check again
+    KIN = 0.000147, # check again  
     KPFG = 0.0175, 
     KFG2 = 3.277
 )
@@ -25,48 +26,31 @@ params = (
 # === ODE RHS ===
 function odes!(du, u, p, t)
     (; μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc,
-       μ2max, qsplit_max, Ksuc, qpmax, KIP, KPFG, KFG2) = p
+       μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2) = p
 
     Xact, Xinact, N, Suc, FruGlu, P = u
 
     # Algebraic equations
-    μ = μmax * FruGlu / (FruGlu + KFG) * (N / (N + KN))
-    qsplit = qsplit_max * (Suc / (Suc + Ksuc))
     N_int = 0.08 * N
     Xtot = Xact + Xinact
-    qp = qpmax * FruGlu / (FruGlu + KPFG) * (KIP / (KIP + N_int/Xtot))
     ratio = Xinact / Xact
     expo_term = (ratio - ϕ) / χacc
-    μ2 = μ2max * FruGlu / (FruGlu + KFG2) * (1 - exp(expo_term))
 
-    if N > 0
-        if Suc >= 0.0
-            du[1] = μ * Xact
-            du[2] = 0.0
-            du[3] = - μ / YXa_N * Xact
-            du[4] = - qsplit * Xact
-            du[5] = (qsplit - μ / YXa_S) * Xact
-            du[6] = 0.0
-        else
-            du[1] = μ * Xact
-            du[2] = 0.0
-            du[3] = - μ / YXa_N * Xact
-            du[4] = 0.0
-            du[5] = (- μ / YXa_S) * Xact
-            du[6] = 0.0
-        end
-    else
-        du[1] = 0.0
-        du[2] = μ2 * Xact
-        du[3] = 0.0
-        du[4] = 0.0
-        du[5] = (- μ2 / YXi_S - qp / YP_S) * Xact
-        du[6] = qp * Xact
-    end
+    μ = μmax * FruGlu / (FruGlu + KFG) * (N / (N + KN))
+    μ2 = μ2max * FruGlu / (FruGlu + KFG2) * (1 - exp(expo_term)) * KIN / (KIN + N)
+    qsplit = qsplit_max * (Suc / (Suc + Ksuc))
+    qp = qpmax * FruGlu / (FruGlu + KPFG) * (KIP / (KIP + N_int/Xtot)) * KIN / (KIN + N)
+
+    du[1] = μ * Xact
+    du[2] = μ2 * Xact+0.1
+    du[3] = - (μ / YXa_N) * Xact
+    du[4] = - qsplit * Xact
+    du[5] = (qsplit - μ / YXa_S - μ2 / YXi_S - qp / YP_S) * Xact
+    du[6] = qp * Xact
 end
 
 # === Initial Conditions ===
-u0 = [2.0, 0.0, 0.75, 65, 10.0, 0.0]  # [Xact, Xinact, N, Suc, FruGlu, P]
+u0 = [2.0, 0.0, 0.1, 65, 10.0, 0.0]  # [Xact, Xinact, N, Suc, FruGlu, P]
 T = 40.0  # Total time for the simulation
 tspan = (0.0, T)
 dt = 0.01
@@ -83,7 +67,7 @@ terminate_cb = ContinuousCallback(stop_condition, terminate!, rootfind=true)
 
 # === Solve the ODE ===
 prob = ODEProblem(odes!, u0, tspan, params)
-sol = solve(prob, Tsit5(), callback=terminate_cb)
+sol = solve(prob, Tsit5())#, callback=terminate_cb)
 
 # Save the solutions for each state variable
 Xa_sol = sol[1, :]
