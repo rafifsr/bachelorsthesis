@@ -14,10 +14,10 @@ module ElemSDEutils
 
         tspan = (0.0, T)  # Time span for the simulation
         u_0 = [u0["X0"], u0["Y0"], u0["Z0"]]  # Initial conditions for X, Y, Z
-        k1 = params[:k1]  # Rate constant for X
-        k2 = params[:k2]  # Rate constant for Y
-        σ = params[:σ]    # Noise scaling parameter
-        K_sy = params[:K_sy]  # Saturation constant for Y
+        k1 = params["k1"]  # Rate constant for X
+        k2 = params["k2"]  # Rate constant for Y
+        σ = params["σ"]    # Noise scaling parameter
+        K_sy = params["K_sy"]  # Saturation constant for Y
         p = (k1, k2, σ, K_sy)  # Parameters for the ODE/SDE
 
         # Define the drift and diffusion functions
@@ -72,7 +72,7 @@ module ElemSDEutils
     # Run M simulations and collect results
     function simulate_paths(
         params::Dict, 
-        tspan::Tuple{Float64, Float64},
+        T::Float64,
         u0::Dict, 
         M::Int,
         noise::String = "noise",
@@ -80,9 +80,9 @@ module ElemSDEutils
 
         sderes = Vector{Any}(undef, M)
         for i in 1:M
-            sderes[i] = kinetics(params, tspan, u0, noise, dt)[1]
+            sderes[i] = kinetics(params, T, u0, noise, dt)[1]
         end
-        oderes = kinetics(params, tspan, u0, noise, dt)[2]
+        oderes = kinetics(params, T, u0, noise, dt)[2]
 
         return sderes, oderes
     end # function simulate_paths
