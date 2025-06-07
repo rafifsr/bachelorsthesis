@@ -42,7 +42,7 @@ function odes!(du, u, p, t)
     qp = qpmax * FruGlu / (FruGlu + KPFG) * (KIP / (KIP + N_int/Xtot)) * KIN / (KIN + N)
 
     du[1] = μ * Xact
-    du[2] = μ2 * Xact+0.1
+    du[2] = μ2 * Xact
     du[3] = - (μ / YXa_N) * Xact
     du[4] = - qsplit * Xact
     du[5] = (qsplit - μ / YXa_S - μ2 / YXi_S - qp / YP_S) * Xact
