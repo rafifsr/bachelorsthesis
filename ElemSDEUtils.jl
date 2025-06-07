@@ -1,4 +1,4 @@
-module simulator
+module ElemSDEutils
     using Pkg
     Pkg.activate(@__DIR__)
     using DifferentialEquations, Random, Distributions, Statistics
@@ -112,4 +112,4 @@ module simulator
         return Φ
     end # function laguerre_design_matrix
 
-end # module simulator
+end # module ElemSDEutils
