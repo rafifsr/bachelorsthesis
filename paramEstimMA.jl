@@ -20,8 +20,8 @@ dfs = [df_Xa, df_Xi, df_N, df_Suc, df_FruGlu, df_MA]
 # 2. Define ODE Model
 # ------------------------------
 function f!(du, u, p, t)
-    (μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc,
-       μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2) = p
+    μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc,
+       μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2 = p
 
     Xact, Xinact, N, Suc, FruGlu, P = u
 
@@ -73,12 +73,14 @@ p = [
     0.0175,  # KPFG
     3.277  # KFG2
 ]
+
 # ------------------------------
 # 4. Define Loss Function and Optimization Problem
 # ------------------------------
 prob = ODEProblem(f!, u0, (0.0, maximum(t)), p)
 
-cost_function = build_loss_objective(prob, Tsit5(), L2Loss(t, df),
+cost_function = build_loss_objective(prob, Tsit5(), 
+                                     L2Loss(t, df),
                                      Optimization.AutoForwardDiff(),
                                      maxiters = 10000, verbose = false)
 
@@ -89,7 +91,33 @@ newsol = solve(newprob, Tsit5())
 println("Optimized parameters: ", optsol.u)
 
 # ------------------------------
-# 5. Plot FruGlu Results (experimental data vs guessed parameters vs optimized)
+# 5. Plot Results (experimental data vs guessed parameters vs optimized)
 # ------------------------------
-plot(df.time, df.FG, label = "Experimental FruGlu", xlabel = "Time", ylabel = "FruGlu", title = "FruGlu Concentration Over Time")
-plot!(newsol.t, newsol[5, :], label = "Optimized FruGlu", linestyle = :dash)
+# Create subplots for each variable
+plot_layout = @layout [a b; c d; e f]
+p = plot(layout = plot_layout, size = (1200, 800))
+
+# Plot each variable
+scatter!(p[1], df.time, df.Xa, label = "Experimental Xa", xlabel = "Time", ylabel = "Xa", title = "Xa Concentration Over Time")
+plot!(p[1], newsol.t, newsol[1, :], label = "Optimized Xa", linestyle = :dash)
+
+scatter!(p[2], df.time, df.Xi, label = "Experimental Xi", xlabel = "Time", ylabel = "Xi", title = "Xi Concentration Over Time")
+plot!(p[2], newsol.t, newsol[2, :], label = "Optimized Xi", linestyle = :dash)
+
+scatter!(p[3], df.time, df.N, label = "Experimental N", xlabel = "Time", ylabel = "N", title = "N Concentration Over Time")
+plot!(p[3], newsol.t, newsol[3, :], label = "Optimized N", linestyle = :dash)
+
+scatter!(p[4], df.time, df.S, label = "Experimental Suc", xlabel = "Time", ylabel = "Suc", title = "Suc Concentration Over Time")
+plot!(p[4], newsol.t, newsol[4, :], label = "Optimized Suc", linestyle = :dash)
+
+scatter!(p[5], df.time, df.FG, label = "Experimental FruGlu", xlabel = "Time", ylabel = "FruGlu", title = "FruGlu Concentration Over Time")
+plot!(p[5], newsol.t, newsol[5, :], label = "Optimized FruGlu", linestyle = :dash)
+
+scatter!(p[6], df.time, df.MA, label = "Experimental MA", xlabel = "Time", ylabel = "MA", title = "MA Concentration Over Time")
+plot!(p[6], newsol.t, newsol[6, :], label = "Optimized MA", linestyle = :dash)
+
+# Display the plot
+display(p)
+
+# plot(df.time, df.FG, label = "Experimental FruGlu", xlabel = "Time", ylabel = "FruGlu", title = "FruGlu Concentration Over Time")
+# plot!(newsol.t, newsol[5, :], label = "Optimized FruGlu", linestyle = :dash)
