@@ -79,7 +79,15 @@ P_sol = sol[6, :]
 
 # === Plotting ===
 using Plots
-plot(sol, xlabel="Time (h)", ylabel="Concentration (g/L)", lw=2,
-     label=["Xa" "Xin" "N" "Suc" "FruGlu" "MA"], legend=:right, fontfamily="Computer Modern",
-     xlims=(0, T) #, ylims=(0, u0[4])
-     )
+plot(sol.t, FruGlu_sol, 
+     xlabel = "Time (h)", 
+     ylabel = "FruGlu Concentration (g/L)",
+     legend = false,
+     ylims = (0, 60),
+     xlims = (0, T),
+     lw = 2)
+
+# plot(sol, xlabel="Time (h)", ylabel="Concentration (g/L)", lw=2,
+#      label=["Xa" "Xin" "N" "Suc" "FruGlu" "MA"], legend=:right, fontfamily="Computer Modern",
+#      xlims=(0, T) #, ylims=(0, u0[4])
+#      )
