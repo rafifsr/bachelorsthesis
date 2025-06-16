@@ -14,7 +14,7 @@ tspan = (0.0, T)
 tsteps = 0:dt:T
 
 # Define drift and diffusion for the components
-function f(du, u, p, t)
+function f!(du, u, p, t)
     X, Y, Z = u
     k1, k2 = p
     du[1] = -k1 * X
@@ -22,7 +22,7 @@ function f(du, u, p, t)
     du[3] = k2 * Y
 end
 
-function g(du, u, p, t)
+function g!(du, u, p, t)
     X, Y, Z = u
     σ = p[3]
     du[1] = 0
@@ -56,7 +56,7 @@ Ys = zeros(M, length(tsteps))
 τ = fill(length(tsteps), M)
 
 # Simulate all trajectories
-prob = SDEProblem(f, g, u0, tspan, p)
+prob = SDEProblem(f!, g!, u0, tspan, p)
 Random.seed!(42)
 for i in 1:M
     sol = solve(prob, EM(), dt=dt, saveat=tsteps)
