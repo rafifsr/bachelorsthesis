@@ -60,7 +60,7 @@ module SDEutils
             # BioVT
             dS = - (1 / Y_xs) * μ_x * X - (1 / Y_ys) * q_py * X - m_s * X
             dX = μ_x * X
-            dY = q_py * X - q_pz * Y
+            dY = q_py * X - q_pz * X
             dZ = q_pz * Y
             
             du[1] = dS

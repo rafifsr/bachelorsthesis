@@ -21,7 +21,7 @@ function f!(du, u, p, t)
 
     µx = µmax * S / (S + Kx)
     qy = qymax * S / (S + Ky)
-    qz = qzmax * S / (S + Kz)
+    qz = qzmax * Y / (Y + Kz)
 
     du[1] = µx * X
     du[2] = qy * X - qz * Y
