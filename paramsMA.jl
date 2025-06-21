@@ -1,40 +1,46 @@
 using Pkg
 Pkg.activate(@__DIR__)
-using DifferentialEquations, RecursiveArrayTools, Plots, DiffEqParamEstim
-using Optimization, ForwardDiff, OptimizationOptimJL, OptimizationBBO, OptimizationOptimJL, SciMLSensitivity
-using CSV, DataFrames
-using DiffEqBayes, OrdinaryDiffEq, Distributions, StatsPlots, BenchmarkTools, TransformVariables, DynamicHMC
+using DataFrames, CSV, DifferentialEquations, Plots
+using Optimization, ForwardDiff, OptimizationOptimJL, OptimizationBBO, RecursiveArrayTools, DiffEqParamEstim
 
-# ------------------------------
-# 1. Load Experimental Data
-# ------------------------------
+# Load Experimental Data
 df = CSV.read("datasetsMA/nitrogenlim.csv", DataFrame)
-df_Xa = df[!, [:time, :Xa]]
-df_Xi = df[!, [:time, :Xi]]
-df_N = df[!, [:time, :N]]
-df_Suc = df[!, [:time, :S]]
-df_FruGlu = df[!, [:time, :FG]]
-df_MA = df[!, [:time, :MA]]
-dfs = [df_Xa, df_Xi, df_N, df_Suc, df_FruGlu, df_MA]
+dfs = hcat(df.Xa, df.Xi, df.N, df.S, df.FG, df.MA)
+u0 = dfs[1, :]
+t = df.time
+tspan = (t[1], t[end])
+println("Data loaded successfully. Number of rows: ", nrow(df))
 
-# ------------------------------
-# 2. Define ODE Model
-# ------------------------------
+# Define ODE Model
 function f!(du, u, p, t)
-    μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc, μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2 = p
 
+    # Unpack state and parameters
+    μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc, μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2 = p
     Xact, Xinact, N, Suc, FruGlu, P = u
 
+    # # Check for NaN or Inf in state or parameters
+    # if any(!isfinite, u) || any(!isfinite, p)
+    #     error("NaN or Inf in state or parameters at time t = $t")
+    # end
+
+    # Ensure non-negative values
+    ϵ = 1e-8  # Small positive value to avoid division by zero
+    Xact_safe = max(Xact, ϵ)
+    Xtot_safe = max(Xact + Xinact, ϵ)
+    FruGlu_safe = max(FruGlu, ϵ)
+    Suc_safe = max(Suc, ϵ)
+
     # Algebraic equations
-    N_int = 0.08 * N
     Xtot = Xact + Xinact
-    ratio = Xinact / Xact
+    N_int = 0.08 * N
+    ratio = Xinact / Xact_safe
     expo_term = (ratio - ϕ) / χacc
 
-    μ = μmax * FruGlu / (FruGlu + KFG) * (N / (N + KN))
-    μ2 = μ2max * FruGlu / (FruGlu + KFG2) * (1 - exp(expo_term)) * KIN / (KIN + N)
-    qsplit = qsplit_max * (Suc / (Suc + Ksuc))
-    qp = qpmax * FruGlu / (FruGlu + KPFG) * (KIP / (KIP + N_int/Xtot)) * KIN / (KIN + N)
+    μ = μmax * FruGlu_safe / (FruGlu_safe + KFG + ϵ) * (N / (N+ KN + ϵ))
+    μ2 = μ2max * FruGlu_safe / (FruGlu_safe + KFG2 + ϵ) * (1 - exp(expo_term)) * KIN / (KIN + N + ϵ)
+    qsplit = qsplit_max * Suc_safe / (Suc_safe + Ksuc + ϵ)
+    qp = qpmax * FruGlu_safe / (FruGlu_safe + KPFG + ϵ) *
+         (KIP / (KIP + N_int / Xtot_safe + ϵ)) * KIN / (KIN + N + ϵ)
 
     du[1] = μ * Xact
     du[2] = μ2 * Xact
@@ -44,16 +50,7 @@ function f!(du, u, p, t)
     du[6] = qp * Xact
 end
 
-# ------------------------------
-# 3. Prepare Time Grid, Parameters, and Initial Condition
-# ------------------------------
-times = df.time
-t = collect(times)
-
-# Assume initial condition from first available values
-u0 = [df_Xa.Xa[1], df_Xi.Xi[1], df_N.N[1], df_Suc.S[1], df_FruGlu.FG[1], df_MA.MA[1]]
-
-# Guessed parameters
+# 3. Guessed Parameters 
 params = [
     0.125,  # μmax
     0.147,  # KFG
@@ -67,38 +64,32 @@ params = [
     0.125,  # μ2max
     1.985,  # qsplit_max
     0.00321,  # Ksuc
-    2.8188,  # qpmax
-    1.5e-4,  # KIP
-    1.5e-4,  # KIN
+    0.095,  # qpmax
+    1.5,  # KIP
+    1.5e-3,  # KIN
     0.0175,  # KPFG
     3.277  # KFG2
 ]
 
-# ------------------------------
-# 4. Define Loss Function and Optimization Problem
-# ------------------------------
-prob = ODEProblem(f!, u0, (0.0, maximum(t)), params)
-sol = solve(prob, Tsit5())
+# Solve the ODE
+prob = ODEProblem(f!, u0, tspan, params)
+sol = solve(prob, Rosenbrock23(), saveat=0.1, abstol=1e-8, reltol=1e-6)
 
-cost_function = build_loss_objective(prob, Tsit5(), 
-                                     L2Loss(t, df, differ_weight = 0.3, data_weight = 0.7),
-                                     Optimization.AutoForwardDiff(),
-                                     maxiters = 10000, verbose = false)
-
+# Optimization Problem
+cost_function = build_loss_objective(prob, Rosenbrock23(), L2Loss(t, dfs), saveat=0.1, Optimization.AutoForwardDiff(),
+                                     maxiters = 10_000, abstol=1e-8, reltol=1e-6, verbose=true)
 optprob = Optimization.OptimizationProblem(cost_function, params)
 optsol = solve(optprob, BFGS())
-newprob = remake(prob, p = optsol.u)
-newsol = solve(newprob, Tsit5())
-println("Optimized parameters: ", optsol.u)
+println("Optimization completed. Optimal parameters: ", optsol.u)
 
-# ------------------------------
-# 5. Plot Results (experimental data vs guessed parameters vs optimized)
-# ------------------------------
-# Create subplots for each variable
+# Solve ODE with optimized parameters
+newprob = ODEProblem(f!, u0, tspan, optsol.u)
+newsol = solve(newprob, Rosenbrock23(), saveat=0.1, abstol=1e-8, reltol=1e-6)
+
+# Visualize the results
 plot_layout = @layout [a b; c d; e f]
 p = plot(layout = plot_layout, size = (1200, 800), fontfamily = "Computer Modern")
 
-# Plot each variable
 scatter!(p[1], df.time, df.Xa, label = "Experimental Xa", xlabel = "Time", ylabel = "Xa", legend = :bottomright)
 plot!(p[1], newsol.t, newsol[1, :], label = "Optimized Xa", linestyle = :dash)
 plot!(p[1], sol.t, sol[1, :], label = "Guessed Xa", linestyle = :dot, xlims = (0, 40), ylims = (-0.1, 10))
@@ -113,7 +104,7 @@ plot!(p[3], sol.t, sol[3, :], label = "Guessed N", linestyle = :dot, xlims = (0,
 
 scatter!(p[4], df.time, df.S, label = "Experimental Suc", xlabel = "Time", ylabel = "Suc")
 plot!(p[4], newsol.t, newsol[4, :], label = "Optimized Suc", linestyle = :dash)
-plot!(p[4], sol.t, sol[4, :], label = "Guessed Suc", linestyle = :dot, xlims = (0, 40), ylims = (-100, 65))
+plot!(p[4], sol.t, sol[4, :], label = "Guessed Suc", linestyle = :dot, xlims = (0, 40), ylims = (-1, 65))
 
 scatter!(p[5], df.time, df.FG, label = "Experimental FruGlu", xlabel = "Time", ylabel = "FruGlu")
 plot!(p[5], newsol.t, newsol[5, :], label = "Optimized FruGlu", linestyle = :dash)
@@ -127,4 +118,4 @@ plot!(p[6], sol.t, sol[6, :], label = "Guessed MA", linestyle = :dot, xlims = (0
 display(p)
 
 # Save the plot to a file
-savefig(p, "Figures/param_estim_ma.pdf")
+savefig(p, "Figures/resultsMA.pdf")
