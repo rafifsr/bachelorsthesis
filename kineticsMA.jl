@@ -50,7 +50,7 @@ function odes!(du, u, p, t)
 end
 
 # === Initial Conditions ===
-u0 = [2.0, 0.0, 0.1, 65, 10.0, 0.0]  # [Xact, Xinact, N, Suc, FruGlu, P]
+u0 = [1.85, 0.0, 0.76, 62, 12.3, 0.0]  # [Xact, Xinact, N, Suc, FruGlu, P]
 T = 40.0  # Total time for the simulation
 tspan = (0.0, T)
 dt = 0.01
@@ -67,7 +67,7 @@ terminate_cb = ContinuousCallback(stop_condition, terminate!, rootfind=true)
 
 # === Solve the ODE ===
 prob = ODEProblem(odes!, u0, tspan, params)
-sol = solve(prob, Tsit5())#, callback=terminate_cb)
+sol = solve(prob, Rosenbrock23())#, callback=terminate_cb)
 
 # Save the solutions for each state variable
 Xa_sol = sol[1, :]
@@ -87,7 +87,7 @@ p = plot(layout = plot_layout, size = (1200, 800), fontfamily = "Computer Modern
 plot!(p[1], sol.t, sol[1, :], label = "Xa", xlims = (0, 40), ylims = (-0.1, 10), ylabel = "Xa")
 plot!(p[2], sol.t, sol[2, :], label = "Xi", xlims = (0, 40), ylims = (-0.1, 14), ylabel = "Xi")
 plot!(p[3], sol.t, sol[3, :], label = "N", xlims = (0, 40), ylims = (-0.01, 0.8), ylabel = "N")
-plot!(p[4], sol.t, sol[4, :], label = "Suc", xlims = (0, 40), ylims = (-0.5, 65), ylabel = "Suc")
+plot!(p[4], sol.t, sol[4, :], label = "Suc", xlims = (0, 40), ylims = (-10, 65), ylabel = "Suc")
 plot!(p[5], sol.t, sol[5, :], label = "FruGlu", xlims = (0, 40), ylims = (-1, 100), xlabel = "Time", ylabel = "FruGlu")
 plot!(p[6], sol.t, sol[6, :], label = "MA", xlims = (0, 40), ylims = (-0.1, 25), xlabel = "Time", ylabel = "MA")
 
