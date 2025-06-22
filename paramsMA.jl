@@ -18,11 +18,6 @@ function f!(du, u, p, t)
     μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc, μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2 = p
     Xact, Xinact, N, Suc, FruGlu, P = u
 
-    # # Check for NaN or Inf in state or parameters
-    # if any(!isfinite, u) || any(!isfinite, p)
-    #     error("NaN or Inf in state or parameters at time t = $t")
-    # end
-
     # Ensure non-negative values
     ϵ = 1e-8  # Small positive value to avoid division by zero
     Xact_safe = max(Xact, ϵ)
