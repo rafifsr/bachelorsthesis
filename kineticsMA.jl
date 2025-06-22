@@ -1,45 +1,38 @@
 using Pkg
 Pkg.activate(@__DIR__)
-using DifferentialEquations, Random, Distributions, Statistics
+using DifferentialEquations, Random, Distributions, Statistics, DataFrames, CSV
 
-# === Parameters ===
-params = (
-    μmax = 0.125, 
-    KFG = 0.147, 
-    KN = 0.000038, 
-    YXa_S = 0.531, 
-    YXi_S = 0.799, 
-    YXa_N = 9.428, 
-    YP_S = 0.508, 
-    ϕ = 1.56, 
-    χacc = 0.3,
-    μ2max = 0.125, 
-    qsplit_max = 1.985, 
-    Ksuc = 0.00321, 
-    qpmax = 0.28188, 
-    KIP = 0.000147, # check again
-    KIN = 0.000147, # check again  
-    KPFG = 0.0175, 
-    KFG2 = 3.277
-)
+# Load Experimental Data
+df = CSV.read("datasetsMA/nitrogenlim.csv", DataFrame)
+dfs = hcat(df.Xa, df.Xi, df.N, df.S, df.FG, df.MA)
+u0 = dfs[1, :]
+t = df.time
+tspan = (t[1], t[end])
 
-# === ODE RHS ===
-function odes!(du, u, p, t)
-    (; μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc,
-       μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2) = p
-
+# Define ODE Model
+function f!(du, u, p, t)
+    # Unpack state and parameters
+    μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc, μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2, σxa, σxi, σs, σfg, σp = p
     Xact, Xinact, N, Suc, FruGlu, P = u
 
+    # Ensure non-negative values
+    ϵ = 1e-8  # Small positive value to avoid division by zero
+    Xact_safe = max(Xact, ϵ)
+    Xtot_safe = max(Xact + Xinact, ϵ)
+    FruGlu_safe = max(FruGlu, ϵ)
+    Suc_safe = max(Suc, ϵ)
+
     # Algebraic equations
-    N_int = 0.08 * N
     Xtot = Xact + Xinact
-    ratio = Xinact / Xact
+    N_int = 0.08 * N
+    ratio = Xinact / Xact_safe
     expo_term = (ratio - ϕ) / χacc
 
-    μ = μmax * FruGlu / (FruGlu + KFG) * (N / (N + KN))
-    μ2 = μ2max * FruGlu / (FruGlu + KFG2) * (1 - exp(expo_term)) * KIN / (KIN + N)
-    qsplit = qsplit_max * (Suc / (Suc + Ksuc))
-    qp = qpmax * FruGlu / (FruGlu + KPFG) * (KIP / (KIP + N_int/Xtot)) * KIN / (KIN + N)
+    μ = μmax * FruGlu_safe / (FruGlu_safe + KFG + ϵ) * (N / (N+ KN + ϵ))
+    μ2 = μ2max * FruGlu_safe / (FruGlu_safe + KFG2 + ϵ) * (1 - exp(expo_term)) * KIN / (KIN + N + ϵ)
+    qsplit = qsplit_max * Suc_safe / (Suc_safe + Ksuc + ϵ)
+    qp = qpmax * FruGlu_safe / (FruGlu_safe + KPFG + ϵ) *
+         (KIP / (KIP + N_int / Xtot_safe + ϵ)) * KIN / (KIN + N + ϵ)
 
     du[1] = μ * Xact
     du[2] = μ2 * Xact
@@ -49,47 +42,85 @@ function odes!(du, u, p, t)
     du[6] = qp * Xact
 end
 
-# === Initial Conditions ===
-u0 = [1.85, 0.0, 0.76, 62, 12.3, 0.0]  # [Xact, Xinact, N, Suc, FruGlu, P]
-T = 40.0  # Total time for the simulation
-tspan = (0.0, T)
-dt = 0.01
-tsteps = 0.0:dt:T  # Time steps for the solution
-
-# === Termination Callback ===
-function stop_condition(u, t, integrator)
-    Suc = u[4]
-    FruGlu = u[5]
-    return Suc + FruGlu
+function noise!(du, u, p, t)
+    Xact, Xinact, N, Suc, FruGlu, P = u
+    μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc, μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2, σxa, σxi, σs, σfg, σp = p
+    du[1] = σxa * FruGlu / (FruGlu + (KFG)) * Xact
+    du[2] = σxi * FruGlu / (FruGlu + (KFG2)) * Xinact
+    # du[3] = (σxa / YXa_N) * FruGlu / (FruGlu + (KFG)) * Xact
+    # du[4] = σs * Suc / (Suc + Ksuc) * Xact
+    du[5] = σfg * FruGlu / (FruGlu + Ksuc) * (Xact + Xinact)
+    du[6] = σp * FruGlu / (FruGlu + (KPFG)) * Xact
 end
 
-terminate_cb = ContinuousCallback(stop_condition, terminate!, rootfind=true)
+# === Parameters ===
+params = [
+    0.125,  # μmax
+    0.147,  # KFG
+    3.8e-5,  # KN
+    0.531,  # YXa_S
+    0.799,  # YXi_S
+    9.428,  # YXa_N
+    0.508,  # YP_S
+    1.56,  # ϕ
+    0.3,  # χacc
+    0.125,  # μ2max
+    1.985,  # qsplit_max
+    0.00321,  # Ksuc
+    0.095,  # qpmax
+    1.5,  # KIP
+    1.5e-3,  # KIN
+    0.0175,  # KPFG
+    3.277,  # KFG2
+    0.05,   # σxa
+    0.05,   # σxi
+    0.05,   # σs
+    0.05,   # σfg
+    0.05    # σp
+]
 
 # === Solve the ODE ===
-prob = ODEProblem(odes!, u0, tspan, params)
-sol = solve(prob, Rosenbrock23())#, callback=terminate_cb)
+prob = ODEProblem(f!, u0, tspan, params)
+sol = solve(prob, Rosenbrock23(), saveat=dt, abstol=1e-8, reltol=1e-6)
 
-# Save the solutions for each state variable
-Xa_sol = sol[1, :]
-Xin_sol = sol[2, :]
-N_sol = sol[3, :]
-Suc_sol = sol[4, :]
-FruGlu_sol = sol[5, :]
-P_sol = sol[6, :]
+# === Extend to SDE ===
+sdeprob = SDEProblem(f!, noise!, u0, tspan, params)
+dt = 0.1  # Time step for the SDE solver
+sol_sde = solve(sdeprob, ImplicitEM(), dt=dt, saveat=dt, abstol=1e-8, reltol=1e-6)
 
 # === Plotting ===
-using Plots
+using Plots, Measures, LaTeXStrings
 
-plot_layout = @layout [a b; c d; e f]
-p = plot(layout = plot_layout, size = (1200, 800), fontfamily = "Computer Modern")
+plot_layout = @layout [a b ;c d ;e f]
+p = plot(layout = plot_layout, size = (1200, 800), fontfamily = "Computer Modern", legend = true, leftmargin = 10mm, rightmargin = 5mm, bottommargin = 5mm)
 
 # Plot each variable
-plot!(p[1], sol.t, sol[1, :], label = "Xa", xlims = (0, 40), ylims = (-0.1, 10), ylabel = "Xa")
-plot!(p[2], sol.t, sol[2, :], label = "Xi", xlims = (0, 40), ylims = (-0.1, 14), ylabel = "Xi")
-plot!(p[3], sol.t, sol[3, :], label = "N", xlims = (0, 40), ylims = (-0.01, 0.8), ylabel = "N")
-plot!(p[4], sol.t, sol[4, :], label = "Suc", xlims = (0, 40), ylims = (-10, 65), ylabel = "Suc")
-plot!(p[5], sol.t, sol[5, :], label = "FruGlu", xlims = (0, 40), ylims = (-1, 100), xlabel = "Time", ylabel = "FruGlu")
-plot!(p[6], sol.t, sol[6, :], label = "MA", xlims = (0, 40), ylims = (-0.1, 25), xlabel = "Time", ylabel = "MA")
+plot!(p[1], sol.t, sol[1, :], label = "Xa ODE", xlims = (0, 40), ylims = (-0.1, 11), ylabel = "Concentration / (g/L)", lw = 2)
+plot!(p[1], sol_sde.t, sol_sde[1, :], label = "Xa SDE", linestyle = :dash, lw = 2)
+scatter!(p[1], df.time, df.Xa, label = "Measured")
+
+plot!(p[2], sol.t, sol[2, :], label = "Xi ODE", xlims = (0, 40), ylims = (-0.2, 16) , lw = 2)
+plot!(p[2], sol_sde.t, sol_sde[2, :], label = "Xi SDE", linestyle = :dash, lw = 2)
+scatter!(p[2], df.time, df.Xi, label = "Measured")
+
+plot!(p[3], sol.t, sol[3, :], label = "N ODE", xlims = (0, 40), ylabel = "Concentration / (g/L)", ylims = (-0.01, 1.0), lw = 2)
+plot!(p[3], sol_sde.t, sol_sde[3, :], label = "N SDE", linestyle = :dash, lw = 2)
+scatter!(p[3], df.time, df.N, label = "Measured")
+
+plot!(p[4], sol.t, sol[4, :], label = "Suc ODE", xlims = (0, 40), ylims = (-0.5, 70), lw = 2)
+plot!(p[4], sol_sde.t, sol_sde[4, :], label = "Suc SDE", linestyle = :dash, lw = 2)
+scatter!(p[4], df.time, df.S, label = "Measured")
+
+plot!(p[5], sol.t, sol[5, :], label = "FruGlu ODE", xlims = (0, 40), ylims = (-0.5, 76), ylabel = "Concentration / (g/L)", xlabel = "Time / h", lw = 2)
+plot!(p[5], sol_sde.t, sol_sde[5, :], label = "FruGlu SDE", linestyle = :dash, lw = 2)
+scatter!(p[5], df.time, df.FG, label = "Measured");
+
+plot!(p[6], sol.t, sol[6, :], label = "Malic Acid ODE", xlims = (0, 40), ylims = (-0.3, 25), xlabel = "Time / h", lw = 2)
+plot!(p[6], sol_sde.t, sol_sde[6, :], label = "Malic Acid SDE", linestyle = :dash, lw = 2)
+scatter!(p[6], df.time, df.MA, label = "Measured");
 
 # Display the plot
 display(p)
+
+# # Save the plot
+# savefig(p, "Figures/kineticsMA_plot_3x2.pdf")
