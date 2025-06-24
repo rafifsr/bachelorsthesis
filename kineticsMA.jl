@@ -8,11 +8,12 @@ dfs = hcat(df.Xa, df.Xi, df.N, df.S, df.FG, df.MA)
 u0 = dfs[1, :]
 t = df.time
 tspan = (t[1], t[end])
+dt = 0.1
 
 # Define ODE Model
 function f!(du, u, p, t)
     # Unpack state and parameters
-    μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc, μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2, σxa, σxi, σs, σfg, σp = p
+    μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc, μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2, σxa, σxi, σn, σs, σfg, σp = p
     Xact, Xinact, N, Suc, FruGlu, P = u
 
     # Ensure non-negative values
@@ -44,39 +45,40 @@ end
 
 function noise!(du, u, p, t)
     Xact, Xinact, N, Suc, FruGlu, P = u
-    μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc, μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2, σxa, σxi, σs, σfg, σp = p
+    μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc, μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2, σxa, σxi, σn, σs, σfg, σp = p
     du[1] = σxa * FruGlu / (FruGlu + (KFG)) * Xact
-    du[2] = σxi * FruGlu / (FruGlu + (KFG2)) * Xinact
-    # du[3] = (σxa / YXa_N) * FruGlu / (FruGlu + (KFG)) * Xact
-    # du[4] = σs * Suc / (Suc + Ksuc) * Xact
-    du[5] = σfg * FruGlu / (FruGlu + Ksuc) * (Xact + Xinact)
+    du[2] = σxi * FruGlu / (FruGlu + (KFG2)) * Xact
+    du[3] = 0 # N is not affected by noise in this model, TODO: arguments for this assumption
+    du[4] = σs * Suc / (Suc + (Ksuc)) * Xact
+    du[5] = σfg * FruGlu / (FruGlu + (Ksuc + KFG + KFG2 + KPFG)) * Xact
     du[6] = σp * FruGlu / (FruGlu + (KPFG)) * Xact
 end
 
 # === Parameters ===
 params = [
-    0.125,  # μmax
-    0.147,  # KFG
-    3.8e-5,  # KN
-    0.531,  # YXa_S
-    0.799,  # YXi_S
-    9.428,  # YXa_N
-    0.508,  # YP_S
-    1.56,  # ϕ
-    0.3,  # χacc
-    0.125,  # μ2max
-    1.985,  # qsplit_max
-    0.00321,  # Ksuc
-    0.095,  # qpmax
-    1.5,  # KIP
-    1.5e-3,  # KIN
-    0.0175,  # KPFG
-    3.277,  # KFG2
-    0.05,   # σxa
-    0.05,   # σxi
-    0.05,   # σs
-    0.05,   # σfg
-    0.05    # σp
+    0.125,  # 1. μmax
+    0.147,  # 2. KFG
+    3.8e-5,  # 3. KN
+    0.531,  # 4. YXa_S
+    0.799,  # 5. YXi_S
+    9.428,  # 6. YXa_N
+    0.508,  # 7. YP_S
+    1.56,  # 7. ϕ
+    0.3,  # 8. χacc
+    0.125,  # 9. μ2max
+    1.985,  # 10. qsplit_max
+    0.00321,  # 11. Ksuc
+    0.095,  # 12. qpmax
+    1.5,  # 13. KIP
+    1.5e-3,  # 14. KIN
+    0.0175,  # 15. KPFG
+    3.277,  # 16. KFG2
+    0.05,   # 17. σxa
+    0.05,   # 18. σxi
+    0.05,   # 19. σn
+    0.05,   # 20. σs
+    0.05,   # 21. σfg
+    0.05    # 22. σp
 ]
 
 # === Solve the ODE ===
@@ -84,9 +86,24 @@ prob = ODEProblem(f!, u0, tspan, params)
 sol = solve(prob, Rosenbrock23(), saveat=dt, abstol=1e-8, reltol=1e-6)
 
 # === Extend to SDE ===
+function project!(integrator)
+    integrator.u .= max.(integrator.u, 0.0)
+end
+proj_cb = DiscreteCallback((u,t,integrator) -> true, project!)
 sdeprob = SDEProblem(f!, noise!, u0, tspan, params)
-dt = 0.1  # Time step for the SDE solver
-sol_sde = solve(sdeprob, ImplicitEM(), dt=dt, saveat=dt, abstol=1e-8, reltol=1e-6)
+sol_sde = solve(sdeprob, ImplicitEM(), dt=dt, saveat=dt, abstol=1e-8, reltol=1e-6, callback=proj_cb)
+
+# # === Ensemble Simulation ===
+# prob_func = let p = params
+#     (prob, i, repeat) -> begin
+#         x = 0.3rand(6)
+#         remake(prob, p = vcat(p[1:16], x[1:6]))
+#     end
+# end
+
+# ensemble_prob = EnsembleProblem(sdeprob, prob_func = prob_func)
+# sim = solve(ensemble_prob, ImplicitEM(), trajectories = 1000, dt = dt, saveat = dt, abstol = 1e-8, reltol = 1e-6)
+# summ = EnsembleSummary(sim, t[1]:dt:t[end])
 
 # === Plotting ===
 using Plots, Measures, LaTeXStrings
@@ -95,11 +112,11 @@ plot_layout = @layout [a b ;c d ;e f]
 p = plot(layout = plot_layout, size = (1200, 800), fontfamily = "Computer Modern", legend = true, leftmargin = 10mm, rightmargin = 5mm, bottommargin = 5mm)
 
 # Plot each variable
-plot!(p[1], sol.t, sol[1, :], label = "Xa Model", xlims = (0, 40), ylims = (-0.1, 11), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2)
+plot!(p[1], sol.t, sol[1, :], label = "Xa Model", xlims = (0, 40), ylims = (-0.1, 20), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2)
 plot!(p[1], sol_sde.t, sol_sde[1, :], label = "Xa SDE", linestyle = :dash, lw = 2)
 scatter!(p[1], df.time, df.Xa, label = "Measured")
 
-plot!(p[2], sol.t, sol[2, :], label = "Xi ODE", xlims = (0, 40), ylims = (-0.2, 16), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2)
+plot!(p[2], sol.t, sol[2, :], label = "Xi ODE", xlims = (0, 40), ylims = (-0.2, 20), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2)
 plot!(p[2], sol_sde.t, sol_sde[2, :], label = "Xi SDE", linestyle = :dash, lw = 2)
 scatter!(p[2], df.time, df.Xi, label = "Measured")
 
@@ -122,5 +139,5 @@ scatter!(p[6], df.time, df.MA, label = "Measured");
 # Display the plot
 display(p)
 
-# Save the plot
-savefig(p, "Figures/kineticsMA_plot_3x2_odesde.pdf")
+# # Save the plot
+# savefig(p, "Figures/kineticsMA_plot_3x2_odesde.pdf")
