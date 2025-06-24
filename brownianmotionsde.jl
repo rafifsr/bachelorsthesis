@@ -34,7 +34,7 @@ sol4 = solve(prob, SRIW1(), dt=0.01)
 sol5 = solve(prob, SRIW1(), dt=0.01)
 
 # Plot the solution
-plot(sol, label="Brownian Motion", xlabel="t", ylabel=L"B_t", title="Brownian Motion", 
+plot(sol, label="Brownian Motion", xlabel="t", ylabel=L"B_t", 
      legend=false, grid=true, fontfamily="Computer Modern", linecolor=:blue)
 plot!(sol2, linecolor=:red, style=:dash)
 plot!(sol3, linecolor=:green, style=:dot)
