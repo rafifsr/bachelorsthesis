@@ -91,7 +91,7 @@ function project!(integrator)
 end
 proj_cb = DiscreteCallback((u,t,integrator) -> true, project!)
 sdeprob = SDEProblem(f!, noise!, u0, tspan, params)
-sol_sde = solve(sdeprob, ImplicitEM(), dt=dt, saveat=dt, abstol=1e-8, reltol=1e-6, callback=proj_cb)
+sol_sde = solve(sdeprob, EM(), dt=dt, saveat=dt, abstol=1e-8, reltol=1e-6, callback=proj_cb)
 
 # # === Ensemble Simulation ===
 # prob_func = let p = params
@@ -112,7 +112,7 @@ plot_layout = @layout [a b ;c d ;e f]
 p = plot(layout = plot_layout, size = (1200, 800), fontfamily = "Computer Modern", legend = true, leftmargin = 10mm, rightmargin = 5mm, bottommargin = 5mm)
 
 # Plot each variable
-plot!(p[1], sol.t, sol[1, :], label = "Xa Model", xlims = (0, 40), ylims = (-0.1, 20), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2)
+plot!(p[1], sol.t, sol[1, :], label = "Xa ODE", xlims = (0, 40), ylims = (-0.1, 20), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2)
 plot!(p[1], sol_sde.t, sol_sde[1, :], label = "Xa SDE", linestyle = :dash, lw = 2)
 scatter!(p[1], df.time, df.Xa, label = "Measured")
 
