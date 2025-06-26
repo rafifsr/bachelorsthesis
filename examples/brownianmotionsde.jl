@@ -34,12 +34,12 @@ sol4 = solve(prob, SRIW1(), dt=0.01)
 sol5 = solve(prob, SRIW1(), dt=0.01)
 
 # Plot the solution
-plot(sol, label="Brownian Motion", xlabel="t", ylabel=L"B_t", 
+plot(sol, ylabel=L"X_t", xlabel = "Time", 
      legend=false, grid=true, fontfamily="Computer Modern", linecolor=:blue)
-plot!(sol2, linecolor=:red, style=:dash)
-plot!(sol3, linecolor=:green, style=:dot)
+plot!(sol2, linecolor=:red, style=:dash, xlabel = "Time")
+plot!(sol3, linecolor=:green, style=:dot, xlabel = "Time")
 # plot!(sol4, linecolor=:orange, style=:dashdot)
 # plot!(sol5, linecolor=:purple)
-ylims!(-5, 5)
+ylims!(-2, 5)
 xlims!(0, 5)
-savefig("Figures/brownian_motion_plot.pdf")
+savefig("Figures/geometric_brownian_motion_plot.pdf")
