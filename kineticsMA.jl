@@ -48,7 +48,7 @@ function noise!(du, u, p, t)
     μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc, μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2, σxa, σxi, σn, σs, σfg, σp = p
     du[1] = σxa * FruGlu / (FruGlu + (KFG)) * Xact
     du[2] = σxi * FruGlu / (FruGlu + (KFG2)) * Xact
-    du[3] = 0 # N is not affected by noise in this model, TODO: arguments for this assumption
+    du[3] = σn * N / (N + (KN)) * Xact
     du[4] = σs * Suc / (Suc + (Ksuc)) * Xact
     du[5] = σfg * FruGlu / (FruGlu + (Ksuc + KFG + KFG2 + KPFG)) * Xact
     du[6] = σp * FruGlu / (FruGlu + (KPFG)) * Xact
@@ -73,12 +73,12 @@ params = [
     1.5e-3,  # 14. KIN
     0.0175,  # 15. KPFG
     3.277,  # 16. KFG2
-    0.05,   # 17. σxa
-    0.05,   # 18. σxi
-    0.05,   # 19. σn
-    0.05,   # 20. σs
-    0.05,   # 21. σfg
-    0.05    # 22. σp
+    5e-2,   # 17. σxa
+    5e-2,   # 18. σxi
+    1e-2,   # 19. σn
+    5e-2,   # 20. σs
+    5e-2,   # 21. σfg
+    5e-2    # 22. σp
 ]
 
 # === Solve the ODE ===
