@@ -4,17 +4,17 @@ Pkg.activate(@__DIR__)
 using DifferentialEquations, Plots, LaTeXStrings
 
 # Parameters
-r = 1.0
+r = 0.0
 σ = 1.0
 
 # Drift term
 function f!(dx, x, p, t)
-    dx[1] = r
+    dx[1] = r 
 end
 
 # Diffusion term
 function g!(dx, x, p, t)
-    dx[1] = σ
+    dx[1] = σ 
 end
 
 # Initial condition
@@ -30,16 +30,17 @@ prob = SDEProblem(f!, g!, x0, tspan)
 sol = solve(prob, EM(), dt=0.01)
 sol2 = solve(prob, EM(), dt=0.01)
 sol3 = solve(prob, EM(), dt=0.01)
-sol4 = solve(prob, SRIW1(), dt=0.01)
-sol5 = solve(prob, SRIW1(), dt=0.01)
+sol4 = solve(prob, EM(), dt=0.01)
+sol5 = solve(prob, EM(), dt=0.01)
 
 # Plot the solution
-plot(sol, ylabel=L"X_t", xlabel = "Time", 
-     legend=false, grid=true, fontfamily="Computer Modern", linecolor=:blue)
-plot!(sol2, linecolor=:red, style=:dash, xlabel = "Time")
-plot!(sol3, linecolor=:green, style=:dot, xlabel = "Time")
-# plot!(sol4, linecolor=:orange, style=:dashdot)
-# plot!(sol5, linecolor=:purple)
-ylims!(-2, 5)
-xlims!(0, 5)
-savefig("Figures/geometric_brownian_motion_plot.pdf")
+plot(legend=false, grid=true, fontfamily="Computer Modern",)
+plot!(sol, linecolor=:blue, linestyle=:solid)
+plot!(sol2, linecolor=:red, linestyle=:dash)
+plot!(sol3, linecolor=:green, linestyle=:dot)
+plot!(sol4, linecolor=:orange, linestyle=:dashdot)
+xlabel!(L"\textrm{Time}~t")
+ylabel!(L"B_t")
+ylims!(-5, 5)
+xlims!(0, 10)
+savefig("Figures/brownian_motion_plot.pdf")
