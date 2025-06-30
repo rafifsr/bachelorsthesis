@@ -108,32 +108,32 @@ plot_layout = @layout [a b ;c d ;e f]
 p = plot(layout = plot_layout, size = (1200, 900), fontfamily = "Computer Modern", legend = true, leftmargin = 10mm, rightmargin = 5mm, bottommargin = 5mm, legendfont = 12, guidefont = 14, tickfont = 11)
 
 # Plot each variable
-plot!(p[1], sol.t, sol[1, :], label = "Xa ODE", xlims = (0, 40), ylims = (-0.1, 20), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2)
-# plot!(p[1], sol_sde.t, sol_sde[1, :], label = "Xa SDE", linestyle = :dash, lw = 2)
-scatter!(p[1], df_xa.time, df_xa.Xa, label = "Measured")
+plot!(p[1], sol.t, sol[1, :], label = "Xa ODE", xlims = (0, 40), ylims = (-0.1, 20), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash)
+plot!(p[1], sol_sde.t, sol_sde[1, :], label = "Xa SDE", lw = 2, color = :blue)
+# scatter!(p[1], df_xa.time, df_xa.Xa, label = "Measured")
 
-plot!(p[2], sol.t, sol[2, :], label = "Xi ODE", xlims = (0, 40), ylims = (-0.2, 20), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, legend = :topleft)
-# plot!(p[2], sol_sde.t, sol_sde[2, :], label = "Xi SDE", linestyle = :dash, lw = 2)
-scatter!(p[2], df_xi.time, df_xi.Xi, label = "Measured")
+plot!(p[2], sol.t, sol[2, :], label = "Xi ODE", xlims = (0, 40), ylims = (-0.2, 20), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, legend = :topleft, color = :black, linestyle = :dash)
+plot!(p[2], sol_sde.t, sol_sde[2, :], label = "Xi SDE", lw = 2, color = :red)
+# scatter!(p[2], df_xi.time, df_xi.Xi, label = "Measured")
 
-plot!(p[3], sol.t, sol[3, :], label = "N ODE", xlims = (0, 40), xlabel = "Time / h", ylabel = "Concentration / (g/L)", ylims = (-0.01, 1.0), lw = 2)
-# plot!(p[3], sol_sde.t, sol_sde[3, :], label = "N SDE", linestyle = :dash, lw = 2)
-scatter!(p[3], df_n.time, df_n.N, label = "Measured")
+plot!(p[3], sol.t, sol[3, :], label = "N ODE", xlims = (0, 40), xlabel = "Time / h", ylabel = "Concentration / (g/L)", ylims = (-0.01, 1.0), lw = 2, color = :black, linestyle = :dash)
+plot!(p[3], sol_sde.t, sol_sde[3, :], label = "N SDE", lw = 2, color = :green)
+# scatter!(p[3], df_n.time, df_n.N, label = "Measured")
 
-plot!(p[4], sol.t, sol[4, :], label = "Suc ODE", xlims = (0, 40), ylims = (-0.5, 70), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2)
-# plot!(p[4], sol_sde.t, sol_sde[4, :], label = "Suc SDE", linestyle = :dash, lw = 2)
-scatter!(p[4], df_suc.time, df_suc.S, label = "Measured")
+plot!(p[4], sol.t, sol[4, :], label = "Suc ODE", xlims = (0, 40), ylims = (-0.5, 70), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash)
+plot!(p[4], sol_sde.t, sol_sde[4, :], label = "Suc SDE", lw = 2, color = :orange)
+# scatter!(p[4], df_suc.time, df_suc.S, label = "Measured")
 
-plot!(p[5], sol.t, sol[5, :], label = "FruGlu ODE", xlims = (0, 40), ylims = (-0.5, 76), ylabel = "Concentration / (g/L)", xlabel = "Time / h", lw = 2)
-# plot!(p[5], sol_sde.t, sol_sde[5, :], label = "FruGlu SDE", linestyle = :dash, lw = 2)
-scatter!(p[5], df_fruglu.time, df_fruglu.FG, label = "Measured");
+plot!(p[5], sol.t, sol[5, :], label = "FruGlu ODE", xlims = (0, 40), ylims = (-0.5, 76), ylabel = "Concentration / (g/L)", xlabel = "Time / h", lw = 2, color = :black, linestyle = :dash)
+plot!(p[5], sol_sde.t, sol_sde[5, :], label = "FruGlu SDE", lw = 2, color = :purple)
+# scatter!(p[5], df_fruglu.time, df_fruglu.FG, label = "Measured");
 
-plot!(p[6], sol.t, sol[6, :], label = "Malic Acid ODE", xlims = (0, 40), ylims = (-0.3, 25), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2)
-# plot!(p[6], sol_sde.t, sol_sde[6, :], label = "Malic Acid SDE", linestyle = :dash, lw = 2)
-scatter!(p[6], df_ma.time, df_ma.P, label = "Measured");
+plot!(p[6], sol.t, sol[6, :], label = "Malic Acid ODE", xlims = (0, 40), ylims = (-0.3, 25), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash)
+plot!(p[6], sol_sde.t, sol_sde[6, :], label = "Malic Acid SDE", lw = 2, color = :brown)
+# scatter!(p[6], df_ma.time, df_ma.P, label = "Measured");
 
 # Display the plot
 display(p)
 
 # Save the plot
-savefig(p, "Figures/kineticsMA_plot_3x2_fit.pdf")
+savefig(p, "Figures/kineticsMA_plot_3x2_odesde.pdf")
