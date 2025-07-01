@@ -1,6 +1,6 @@
 using Pkg
 Pkg.activate(@__DIR__)
-using DifferentialEquations, Random, Distributions, Statistics, DataFrames, CSV
+using DifferentialEquations, DataFrames, CSV, Plots, Measures, LaTeXStrings, ForwardDiff
 
 # Load Experimental Data
 df = CSV.read("datasetsMA/nitrogenlim.csv", DataFrame)
@@ -62,7 +62,34 @@ function noise!(du, u, p, t)
     du[6] = σp * FruGlu / (FruGlu + (KPFG)) * Xact
 end
 
-# === Parameters ===
+# # === Parameters Maschmeier ===
+# params = [
+#     0.125,  # 1. μmax
+#     0.147,  # 2. KFG
+#     3.8e-5,  # 3. KN
+#     0.531,  # 4. YXa_S
+#     0.799,  # 5. YXi_S
+#     9.428,  # 6. YXa_N
+#     0.508,  # 7. YP_S
+#     1.56,  # 7. ϕ
+#     0.3,  # 8. χacc
+#     0.125,  # 9. μ2max
+#     1.985,  # 10. qsplit_max
+#     0.00321,  # 11. Ksuc
+#     28.188,  # 12. qpmax
+#     1.47e-4,  # 13. KIP
+#     1.47e-4,  # 14. KIN
+#     0.0175,  # 15. KPFG
+#     3.277,  # 16. KFG2
+#     5e-2,   # 17. σxa
+#     5e-2,   # 18. σxi
+#     1e-2,   # 19. σn
+#     5e-2,   # 20. σs
+#     5e-2,   # 21. σfg
+#     5e-2    # 22. σp
+# ]
+
+# === Correct Parameters ===
 params = [
     0.125,  # 1. μmax
     0.147,  # 2. KFG
@@ -77,8 +104,8 @@ params = [
     1.985,  # 10. qsplit_max
     0.00321,  # 11. Ksuc
     0.095,  # 12. qpmax
-    1.5,  # 13. KIP
-    1.5e-3,  # 14. KIN
+    1.5e-1,  # 13. KIP
+    1.5e-2,  # 14. KIN
     0.0175,  # 15. KPFG
     3.277,  # 16. KFG2
     5e-2,   # 17. σxa
@@ -102,38 +129,52 @@ sdeprob = SDEProblem(f!, noise!, u0, tspan, params)
 sol_sde = solve(sdeprob, EM(), dt=dt, saveat=dt, abstol=1e-8, reltol=1e-6, callback=proj_cb)
 
 # === Plotting ===
-using Plots, Measures, LaTeXStrings
-
 plot_layout = @layout [a b ;c d ;e f]
 p = plot(layout = plot_layout, size = (1200, 900), fontfamily = "Computer Modern", legend = true, leftmargin = 10mm, rightmargin = 5mm, bottommargin = 5mm, legendfont = 12, guidefont = 14, tickfont = 11)
 
-# Plot each variable
-plot!(p[1], sol.t, sol[1, :], label = "Xa ODE", xlims = (0, 40), ylims = (-0.1, 20), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash)
-plot!(p[1], sol_sde.t, sol_sde[1, :], label = "Xa SDE", lw = 2, color = :blue)
-# scatter!(p[1], df_xa.time, df_xa.Xa, label = "Measured")
+# Plot each ODE
+plot!(p[1], sol.t, sol[1, :], label = "Xa ODE", xlims = (0, 40), ylims = (-0.1, 20), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :blue, linestyle = :dash)
+plot!(p[2], sol.t, sol[2, :], label = "Xi ODE", xlims = (0, 40), ylims = (-0.2, 20), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, legend = :topleft, color = :red, linestyle = :dash)
+plot!(p[3], sol.t, sol[3, :], label = "N ODE", xlims = (0, 40), xlabel = "Time / h", ylabel = "Concentration / (g/L)", ylims = (-0.01, 1.0), lw = 2, color = :green, linestyle = :dash)
+plot!(p[4], sol.t, sol[4, :], label = "Suc ODE", xlims = (0, 40), ylims = (-0.5, 70), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :orange, linestyle = :dash)
+plot!(p[5], sol.t, sol[5, :], label = "FruGlu ODE", xlims = (0, 40), ylims = (-0.5, 76), ylabel = "Concentration / (g/L)", xlabel = "Time / h", lw = 2, color = :purple, linestyle = :dash)
+plot!(p[6], sol.t, sol[6, :], label = "Malic Acid ODE", xlims = (0, 40), ylims = (-0.1, 25), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :brown, linestyle = :dash) #, legend = :topright)
 
-plot!(p[2], sol.t, sol[2, :], label = "Xi ODE", xlims = (0, 40), ylims = (-0.2, 20), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, legend = :topleft, color = :black, linestyle = :dash)
-plot!(p[2], sol_sde.t, sol_sde[2, :], label = "Xi SDE", lw = 2, color = :red)
-# scatter!(p[2], df_xi.time, df_xi.Xi, label = "Measured")
+# # Plot each SDE
+# plot!(p[1], sol_sde.t, sol_sde[1, :], label = "Xa SDE", lw = 2, color = :blue)
+# plot!(p[2], sol_sde.t, sol_sde[2, :], label = "Xi SDE", lw = 2, color = :red)
+# plot!(p[3], sol_sde.t, sol_sde[3, :], label = "N SDE", lw = 2, color = :green)
+# plot!(p[4], sol_sde.t, sol_sde[4, :], label = "Suc SDE", lw = 2, color = :orange)
+# plot!(p[5], sol_sde.t, sol_sde[5, :], label = "FruGlu SDE", lw = 2, color = :purple)
+# plot!(p[6], sol_sde.t, sol_sde[6, :], label = "Malic Acid SDE", lw = 2, color = :brown)
 
-plot!(p[3], sol.t, sol[3, :], label = "N ODE", xlims = (0, 40), xlabel = "Time / h", ylabel = "Concentration / (g/L)", ylims = (-0.01, 1.0), lw = 2, color = :black, linestyle = :dash)
-plot!(p[3], sol_sde.t, sol_sde[3, :], label = "N SDE", lw = 2, color = :green)
-# scatter!(p[3], df_n.time, df_n.N, label = "Measured")
-
-plot!(p[4], sol.t, sol[4, :], label = "Suc ODE", xlims = (0, 40), ylims = (-0.5, 70), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash)
-plot!(p[4], sol_sde.t, sol_sde[4, :], label = "Suc SDE", lw = 2, color = :orange)
-# scatter!(p[4], df_suc.time, df_suc.S, label = "Measured")
-
-plot!(p[5], sol.t, sol[5, :], label = "FruGlu ODE", xlims = (0, 40), ylims = (-0.5, 76), ylabel = "Concentration / (g/L)", xlabel = "Time / h", lw = 2, color = :black, linestyle = :dash)
-plot!(p[5], sol_sde.t, sol_sde[5, :], label = "FruGlu SDE", lw = 2, color = :purple)
-# scatter!(p[5], df_fruglu.time, df_fruglu.FG, label = "Measured");
-
-plot!(p[6], sol.t, sol[6, :], label = "Malic Acid ODE", xlims = (0, 40), ylims = (-0.3, 25), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash)
-plot!(p[6], sol_sde.t, sol_sde[6, :], label = "Malic Acid SDE", lw = 2, color = :brown)
-# scatter!(p[6], df_ma.time, df_ma.P, label = "Measured");
+# Plot measured data
+scatter!(p[1], df_xa.time, df_xa.Xa, label = "Measured", color = :black)
+scatter!(p[2], df_xi.time, df_xi.Xi, label = "Measured", color = :black)
+scatter!(p[3], df_n.time, df_n.N, label = "Measured", color = :black)
+scatter!(p[4], df_suc.time, df_suc.S, label = "Measured", color = :black)
+scatter!(p[5], df_fruglu.time, df_fruglu.FG, label = "Measured", color = :black);
+scatter!(p[6], df_ma.time, df_ma.P, label = "Measured", color = :black);
 
 # Display the plot
 display(p)
 
 # Save the plot
-savefig(p, "Figures/kineticsMA_plot_3x2_odesde.pdf")
+savefig(p, "Figures/kineticsMA_plot_3x2_newparams.pdf")
+
+# === Stiffness Analysis ===
+# wrap into function with fixed p and t
+f_wrapped(u) = begin
+    du = similar(u)
+    f!(du, u, params, 0.0)
+    return du
+end
+
+# compute Jacobian and Eigenvalues
+J = ForwardDiff.jacobian(f_wrapped, u0)
+λ = eigvals(J)
+
+# Print and check stiffness
+println("Eigenvalues of Jacobian: ", λ)
+stiffness_ratio = maximum(abs.(λ)) / minimum(abs.(λ[abs.(λ) .> 1e-10]))  # avoid divide by zero
+println("Stiffness ratio: ", stiffness_ratio)
