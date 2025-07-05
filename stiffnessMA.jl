@@ -5,23 +5,17 @@ using DifferentialEquations, DataFrames, CSV, Plots, Measures, LaTeXStrings, For
 # Load Experimental Data
 df = CSV.read("datasetsMA/nitrogenlim.csv", DataFrame)
 dfs = hcat(df.Xa, df.Xi, df.N, df.S, df.FG, df.MA)
-df_n = CSV.read("datasetsMA/n.csv", DataFrame)
-df_fruglu = CSV.read("datasetsMA/fruglu.csv", DataFrame)
-df_ma = CSV.read("datasetsMA/malicacid.csv", DataFrame)
-df_suc = CSV.read("datasetsMA/suc.csv", DataFrame)
-df_xa = CSV.read("datasetsMA/xa.csv", DataFrame)
-df_xi = CSV.read("datasetsMA/xi.csv", DataFrame)
 
 # Identify parameters and initial conditions
 u0 = dfs[1, :]
 t = df.time
 tspan = (t[1], t[end])
-dt = 0.1
+dt = 0.01
 
 # Define ODE Model
 function f!(du, u, p, t)
     # Unpack state and parameters
-    μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc, μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2, σxa, σxi, σn, σs, σfg, σp = p
+    μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc, μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2 = p
     Xact, Xinact, N, Suc, FruGlu, P = u
 
     # Ensure non-negative values
@@ -51,19 +45,8 @@ function f!(du, u, p, t)
     du[6] = qp * Xact
 end
 
-function noise!(du, u, p, t)
-    Xact, Xinact, N, Suc, FruGlu, P = u
-    μmax, KFG, KN, YXa_S, YXi_S, YXa_N, YP_S, ϕ, χacc, μ2max, qsplit_max, Ksuc, qpmax, KIP, KIN, KPFG, KFG2, σxa, σxi, σn, σs, σfg, σp = p
-    du[1] = σxa * FruGlu / (FruGlu + (KFG)) * Xact
-    du[2] = σxi * FruGlu / (FruGlu + (KFG2)) * Xact
-    du[3] = σn * N / (N + (KN)) * Xact
-    du[4] = σs * Suc / (Suc + (Ksuc)) * Xact
-    du[5] = σfg * FruGlu / (FruGlu + (Ksuc + KFG + KFG2 + KPFG)) * Xact
-    du[6] = σp * FruGlu / (FruGlu + (KPFG)) * Xact
-end
-
 # === Parameters Maschmeier ===
-params = [
+params_MA = [
     0.125,  # 1. μmax
     0.147,  # 2. KFG
     3.8e-5,  # 3. KN
@@ -80,17 +63,11 @@ params = [
     1.47e-4,  # 13. KIP
     1.47e-4,  # 14. KIN
     0.0175,  # 15. KPFG
-    3.277,  # 16. KFG2
-    5e-2,   # 17. σxa
-    5e-2,   # 18. σxi
-    1e-2,   # 19. σn
-    5e-2,   # 20. σs
-    5e-2,   # 21. σfg
-    5e-2    # 22. σp
+    3.277  # 16. KFG2
 ]
 
 # === Correct Parameters ===
-params = [
+params_new = [
     0.125,  # 1. μmax
     0.147,  # 2. KFG
     3.8e-5,  # 3. KN
@@ -107,36 +84,37 @@ params = [
     1.5e-1,  # 13. KIP
     1.5e-2,  # 14. KIN
     0.0175,  # 15. KPFG
-    3.277,  # 16. KFG2
-    5e-2,   # 17. σxa
-    5e-2,   # 18. σxi
-    1e-2,   # 19. σn
-    5e-2,   # 20. σs
-    5e-2,   # 21. σfg
-    5e-2    # 22. σp
+    3.277  # 16. KFG2
 ]
 
-# === Solve the ODE ===
-prob = ODEProblem(f!, u0, tspan, params)
-sol = solve(prob, Rosenbrock23(), saveat=dt, abstol=1e-8, reltol=1e-6)
+# Compute stiffness over time
+# This function computes the stiffness ratio over time for the given ODE problem.
+function stiffness_over_time(u0, p)
+    prob = ODEProblem(f!, u0, (t[1], t[end]), p)
+    sol = solve(prob, Rosenbrock23(), saveat=0.2)
+    ratios = Float64[]
 
-# Compute Jacobian and stiffness ratio at each saved step
-times = sol.t
-ratios = Float64[]
+    for u in sol.u
+        J = ForwardDiff.jacobian(u -> begin
+            du = similar(u)
+            f!(du, u, p, 0.0)
+            return du
+        end, u)
 
-for u in sol.u
-    J = ForwardDiff.jacobian(u -> begin
-        du = similar(u)
-        f!(du, u, params, 0.0)
-        return du
-    end, u)
-
-    λ = eigvals(J)
-    λ_abs = abs.(λ[abs.(λ) .> 1e-10])  # avoid very small values
-    ratio = maximum(λ_abs) / minimum(λ_abs)
-    push!(ratios, ratio)
+        λ = eigvals(J)
+        λ_abs = abs.(λ[abs.(λ) .> 1e-10])
+        ratio = maximum(λ_abs) / minimum(λ_abs)
+        push!(ratios, ratio)
+    end
+    return sol.t, ratios
 end
 
-# Plot
-plot(times, ratios, yscale=:log10, xlabel="Time / h", ylabel="Stiffness Ratio",
-     lw = 2, xlims=(0, maximum(times)), fontfamily="Computer Modern")
+t1, ratios1 = stiffness_over_time(u0, params_MA)
+t2, ratios2 = stiffness_over_time(u0, params_new)
+
+p = plot(yscale=:log10, xlabel="Time / h", ylabel="Stiffness Ratio", xlims=(t[1], t[end]), fontfamily="Computer Modern",
+        legend = true, legendfont = 13, tickfont = 11, guidefont = 16, margins = 5mm, size = (900,600))
+plot!(t1, ratios1, label = "Maschmeier (2024)", lw = 3)
+plot!(t2, ratios2, label = "New Parameters", lw = 3, linestyle = :dash)
+savefig(p, "Figures/stiffness_ratios.pdf")
+display(p)
