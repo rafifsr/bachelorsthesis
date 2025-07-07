@@ -60,8 +60,8 @@ params = [
     1.985,  # qsplit_max
     0.00321,  # Ksuc
     0.095,  # qpmax
-    1.5,  # KIP
-    1.5e-3,  # KIN
+    1.47e-1,  # KIP
+    1.47e-2,  # KIN
     0.0175,  # KPFG
     3.277  # KFG2
 ]
@@ -112,5 +112,5 @@ plot!(p[6], sol.t, sol[6, :], label = "Guessed MA", linestyle = :dot, xlims = (0
 # Display the plot
 display(p)
 
-# Save the plot to a file
-savefig(p, "Figures/resultsMA.pdf")
+# # Save the plot to a file
+# savefig(p, "Figures/resultsMA.pdf")
