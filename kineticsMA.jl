@@ -14,6 +14,7 @@ df_xi = CSV.read("datasetsMA/xi.csv", DataFrame)
 
 # Identify parameters and initial conditions
 u0 = dfs[1, :]
+# u0 = [2.0, 0.0, 0.27, 3.0, 22.0, 0.0] # Validation data
 t = df.time
 tspan = (t[1], t[end])
 dt = 0.1
@@ -134,11 +135,19 @@ p = plot(layout = plot_layout, size = (1200, 900), fontfamily = "Computer Modern
 
 # Plot each ODE
 plot!(p[1], sol.t, sol[1, :], label = "Xa ODE", xlims = (0, 40), ylims = (-0.1, 20), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash)
-plot!(p[2], sol.t, sol[2, :], label = "Xi ODE", xlims = (0, 40), ylims = (-0.2, 20), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, legend = :topleft, color = :black, linestyle = :dash)
-plot!(p[3], sol.t, sol[3, :], label = "N ODE", xlims = (0, 40), xlabel = "Time / h", ylabel = "Concentration / (g/L)", ylims = (-0.01, 1.0), lw = 2, color = :black, linestyle = :dash)
+plot!(p[2], sol.t, sol[2, :], label = "Xi ODE", xlims = (0, 40), ylims = (-0.2, 20), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash, legend = :topleft)
+plot!(p[3], sol.t, sol[3, :], label = "N ODE", xlims = (0, 40), ylims = (-0.01, 1.0), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash)
 plot!(p[4], sol.t, sol[4, :], label = "Suc ODE", xlims = (0, 40), ylims = (-0.5, 70), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash)
 plot!(p[5], sol.t, sol[5, :], label = "FruGlu ODE", xlims = (0, 40), ylims = (-0.5, 76), ylabel = "Concentration / (g/L)", xlabel = "Time / h", lw = 2, color = :black, linestyle = :dash)
 plot!(p[6], sol.t, sol[6, :], label = "Malic Acid ODE", xlims = (0, 40), ylims = (-0.1, 25), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash) #, legend = :topright)
+
+# # Validation ODE data
+# plot!(p[1], sol.t, sol[1, :], label = "Xa ODE", xlims = (0, 40), ylims = (1.9, 5), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash)
+# plot!(p[2], sol.t, sol[2, :], label = "Xi ODE", xlims = (0, 40), ylims = (-0.2, 7), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash, legend = :topleft)
+# plot!(p[3], sol.t, sol[3, :], label = "N ODE", xlims = (0, 40), ylims = (-0.01, 0.3), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash)
+# plot!(p[4], sol.t, sol[4, :], label = "Suc ODE", xlims = (0, 40), ylims = (-0.5, 5), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash)
+# plot!(p[5], sol.t, sol[5, :], label = "FruGlu ODE", xlims = (0, 40), ylims = (-0.5, 25), ylabel = "Concentration / (g/L)", xlabel = "Time / h", lw = 2, color = :black, linestyle = :dash)
+# plot!(p[6], sol.t, sol[6, :], label = "Malic Acid ODE", xlims = (0, 40), ylims = (-0.1, 8), xlabel = "Time / h", ylabel = "Concentration / (g/L)", lw = 2, color = :black, linestyle = :dash) #, legend = :topright)
 
 # Plot each SDE
 plot!(p[1], sol_sde.t, sol_sde[1, :], label = "Xa SDE", lw = 2, color = :blue)
