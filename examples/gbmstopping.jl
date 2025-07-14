@@ -48,20 +48,20 @@ end
 
 
 # Plot the solution
-p = plot(legend=false, grid=true, fontfamily="Computer Modern", size = (900,600), margins = 5mm, tickfont = 12, guidefont = 16, legendfont = 11)
+p = plot(legend=:topleft, grid=true, fontfamily="Computer Modern", size = (900,600), margins = 5mm, tickfont = 12, guidefont = 16, legendfont = 11)
 plot!(sol, label="Asset price", color=:blue, linewidth=2)
-plot!(tsteps, boundary, label="Exercise Boundary", color=:black, linestyle =:dashdot, linewidth=2)
-hline!([4.5], color=:black, linestyle=:dash)
-annotate!(-0.3, 4.5, text(L"K", :left, 14, :black))
-vline!([9], color=:black, linestyle=:solid)
-annotate!(9, -0.25, text(L"T", :left, 14, :black))
+plot!(tsteps, boundary, label="Optimal Exercise Boundary", color=:black, linestyle =:dashdot, linewidth=2)
+hline!([4.5], color=:black, linestyle=:dash, label="Strike Price")
+annotate!(-0.3, 4.5, text(L"K", :center, 14, :black))
+vline!([9], color=:black, linestyle=:solid, label=false)
+annotate!(9, -0.25, text(L"T", :center, 14, :black))
 
 result = find_first_intersection(sol, boundary, tsteps)
 
 if result !== nothing
     t_int, x_sol, x_bound, i = result
-    vline!([t_int], color=:black, linestyle=:solid)
-    annotate!(t_int, -0.25, text(L"\tau", :left, 20, :black))
+    vline!([t_int], color=:black, linestyle=:solid, label="Optimal Exercise Time")
+    annotate!(t_int, -0.25, text(L"\tau", :center, 20, :black))
 else
     println("No intersection found between solution and boundary.")
 end
@@ -71,4 +71,4 @@ ylabel!("Asset Price / k\$")
 ylims!(0, 6)
 xlims!(0, 10)
 display(p)
-savefig(p, "Figures/gbmstopping2.pdf")
+savefig(p, "gbmstopping2.pdf")
